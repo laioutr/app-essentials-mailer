@@ -21,6 +21,7 @@ node_modules
 
 # Generated dirs
 dist
+src/runtime/emails/compiled
 
 # Nuxt
 .nuxt

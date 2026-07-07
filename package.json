@@ -25,11 +25,12 @@
   "scripts": {
     "dev": "npm run dev:prepare && nuxi dev playground",
     "dev:build": "nuxi build playground",
-    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare playground",
+    "build:emails": "node scripts/build-emails.mjs",
+    "dev:prepare": "pnpm build:emails && nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare playground",
     "lint": "eslint .",
-    "prepack": "nuxt-module-build build",
+    "prepack": "pnpm build:emails && nuxt-module-build build",
     "release": "npm run lint && npm run test && npm run prepack && changelogen --release && npm publish && git push --follow-tags",
-    "test": "vitest run",
+    "test": "pnpm build:emails && vitest run",
     "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit",
     "test:watch": "vitest watch"
   },
@@ -43,6 +44,7 @@
     "@laioutr-core/devtools": "^0.33.1",
     "@laioutr/eslint-config": "^1.8.8",
     "@laioutr/prettier-config": "^1.1.0",
+    "@maizzle/framework": "^6.0.5",
     "@nuxt/devtools": "^2.6.3",
     "@nuxt/module-builder": "1.0.1",
     "@nuxt/schema": "3.16.2",
