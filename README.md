@@ -1,85 +1,147 @@
-<!--
-Get your module up and running quickly.
-
-Find and replace all on all files (CMD+SHIFT+F):
-- Name: My Laioutr App
-- Package name: my-laioutr-app
-- Description: My new Laioutr App
--->
-
-# My Laioutr App
+# @laioutr/app-essentials-mailer
 
 [![Laioutr][laioutr-src]][laioutr-href]
 [![npm version][npm-version-src]][npm-version-href]
-[![npm downloads][npm-downloads-src]][npm-downloads-href]
 [![License][license-src]][license-href]
 [![Nuxt][nuxt-src]][nuxt-href]
 
-My new [Laioutr](https://laioutr.com) App for doing amazing things using Nuxt.
+The shared **email backbone** for the Laioutr essentials-apps family. It provides a
+reusable SMTP transport, a precompiled email-template renderer, and a `sendMail`
+primitive, plus the orchestr action wiring for the flows it ships.
 
-See [laioutr.com](https://laioutr.com) for more information about Laioutr.
+**v1** handles **withdrawal-form** submissions (German _Widerruf_): it delivers the
+consumer's withdrawal to the trader (the critical "store notice", retried once on transient
+connection errors) and sends the consumer a best-effort acknowledgement on a durable medium.
 
-- [✨ &nbsp;Release Notes](/CHANGELOG.md)
-  <!-- - [🏀 Online playground](https://stackblitz.com/github/your-org/my-laioutr-app?file=playground%2Fapp.vue) -->
-  <!-- - [📖 &nbsp;Documentation](https://example.com) -->
+## Installation
 
-## Features
+Add the module to your Laioutr app's `nuxt.config`:
 
-<!-- Highlight some of the features your module provide here -->
+```ts
+export default defineNuxtConfig({
+  modules: ['@laioutr/app-essentials-mailer'],
+})
+```
 
-- ⛰ &nbsp;Foo
-- 🚠 &nbsp;Bar
-- 🌲 &nbsp;Baz
+## Configuration
 
-## Quick Setup
+Configuration is stored **private-only** — it is merged into
+`runtimeConfig['@laioutr/app-essentials-mailer']` and **never** copied to
+`runtimeConfig.public`. **SMTP credentials must never reach a client bundle**; source
+them from environment variables in your `nuxt.config` `runtimeConfig` block so they stay
+server-side and can be overridden per-environment:
 
-Before installing dependencies, you need to create a copy of the `.npmrc.config` file called `.npmrc` and fill in the `NPM_LAIOUTR_TOKEN` with your npm token. You can find this token in your [project settings](https://cockpit.laioutr.cloud/o/_/p/_/settings).
+```ts
+export default defineNuxtConfig({
+  modules: ['@laioutr/app-essentials-mailer'],
+  runtimeConfig: {
+    '@laioutr/app-essentials-mailer': {
+      transport: {
+        type: 'smtp',
+        host: process.env.SMTP_HOST,
+        port: 587,
+        secure: false, // true for port 465
+        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+      },
+      from: 'Shop <noreply@example.com>', // sender; may be "Display Name <addr>"
+      recipient: 'widerruf@example.com', // trader address that receives withdrawal notices
+      replyToConsumer: true, // store-notice reply-to = the consumer's email (default true)
+    },
+  },
+})
+```
 
-- `pnpm i`
-- `npx @laioutr/cli project fetch-rc -p <organization slug>/<project slug> -s <project secret key>` - This will load the `laioutrrc.json` file with the current remote project configuration.
-- `pnpm dev:prepare`
-- `pnpm orchestr-dev`
+| Key               | Type                         | Notes                                                                        |
+| ----------------- | ---------------------------- | ---------------------------------------------------------------------------- |
+| `transport`       | `{ type: 'smtp', … }`        | SMTP connection settings (`host`, `port`, `secure?`, `auth`).                |
+| `from`            | `string`                     | Sender address; `"Display Name <addr>"` accepted.                            |
+| `recipient`       | `string`                     | Trader address that receives withdrawal notices.                             |
+| `replyToConsumer` | `boolean` (default `true`)   | When not `false`, the store-notice `reply-to` is the consumer's email.       |
 
-That's it! You can now use My Laioutr App in your [Laioutr Frontend](https://laioutr.com) ✨
+There is **no config validation** by design — a misconfiguration surfaces as a failed
+send at request time, not at boot.
 
-You can find a thorough guide on getting started with Laioutr development in our [developer guide](https://docs.laioutr.io/developer-guide/setup).
+## Server API
 
-## Linting and Formatting
+Reusable, server-only primitives are exported from the `/server` subpath (no `#imports`,
+no Nuxt globals — safe to import from any Nitro server context):
 
-We use ESLint and Prettier to lint and format the code. This repository contains opinionated configurations for both tools. You can - of course - replace them with your own configurations.
+```ts
+import {
+  sendMail,
+  resolveTransport,
+  renderFormEmail,
+  getShell,
+  createSmtpTransport,
+} from '@laioutr/app-essentials-mailer/server'
+```
 
-## Publishing
+- `sendMail(config, message)` — resolve the transport from config and send one message.
+- `resolveTransport(config)` / `createSmtpTransport(smtp)` — the transport seam.
+- `renderFormEmail(opts)` — fill a compiled shell with per-request data → `{ html, text }`.
+- `getShell(key)` — look up a compiled template shell by key (e.g. `'form-email'`).
 
-To publish a new version, run `pnpm release`. This will:
+## How emails are authored
 
-- Run the tests
-- Update the changelog
-- Publish the package to npmjs.org
-- Push the changes to the repository
+Templates live in `emails/*.vue` and are authored with **[Maizzle](https://maizzle.com)**
+(Vue-SFC email framework: Outlook-safe HTML + CSS inlining). They are **precompiled at
+build time** (`pnpm build:emails`) into HTML "shells" under
+`src/runtime/emails/compiled/` — Maizzle is a **devDependency and never ships in a
+consumer's runtime bundle**.
 
-### Private publishing
+Dynamic values are **not** evaluated by Vue. Each token is wrapped in `v-pre` so it
+survives compilation literally, and at runtime the shell is filled with
+**[Handlebars](https://handlebarsjs.com)** — a small runtime template engine. This means
+templates express real **runtime** logic (`{{#each}}` loops, `{{#if}}` conditionals), not
+just fixed placeholders, while keeping the heavy authoring pipeline out of production.
+Handlebars' default `{{ }}` escaping HTML-escapes all interpolated data, so user-supplied
+values can never inject markup. Plaintext is derived from the rendered HTML via
+`html-to-text`.
 
-If you want to publish a private package to npm.laioutr.cloud, you need to:
+## Extensibility (future)
 
-1. Make sure you have a `.npmrc` with your private npm registry token.
-2. Add this line to the root of the `package.json` file: `"publishConfig": { "registry": "https://npm.laioutr.cloud/" }`
-3. Make sure your package-name follows the `@laioutr-org/<organization-slug>_<package-name>` format.
+The mailer is built to become the shared email backbone for the essentials-apps
+family. Multi-app template contribution is **not implemented in v1**, but the seams exist:
 
-After that you can run `pnpm release` to publish the package to npm.laioutr.cloud.
+- **Exportable Maizzle config** (`maizzle.config.mjs`) — the single styling/pipeline source.
+- **Key-addressed renderer** (`getShell(key)` + `renderFormEmail`) — templates are looked up by key.
+- **Runtime template engine** (Handlebars) — contributed templates can use runtime `{{#each}}`/`{{#if}}`, not only fixed placeholders.
+- **Configurable compile globs** (`scripts/build-emails.mjs` `templateDirs` list) — v1 lists only this app's `emails/`.
+- **Shared server API** (`@laioutr/app-essentials-mailer/server`) — `sendMail`, `resolveTransport`, `renderFormEmail`.
 
-## Contribution
+When a second essentials app needs to send email, add a **registration hook** so apps
+contribute a raw-template directory (+ optional components) that is compiled **at the
+consumer build** against the shared config into Nitro server assets, then rendered/sent
+through the shared API. At that point `@maizzle/framework` moves from a devDependency to a
+build-time dependency (present at the consumer build, still tree-shaken from the runtime
+bundle). This mirrors how Laioutr apps already contribute `orchestrDirs`/`sections`/`blocks`.
 
-Follow the [setup guide](https://docs.laioutr.io/developer-guide/setup) to get started.
+## Development
+
+Create a `.npmrc` from `.npmrc.config` and fill in `NPM_LAIOUTR_TOKEN` (needed for
+`@laioutr-*` installs), then:
+
+```bash
+pnpm install
+pnpm dev:prepare   # build:emails + module stub + prepare playground
+pnpm test          # build:emails + vitest
+pnpm lint
+```
+
+`pnpm build:emails` regenerates the compiled shells from `emails/*.vue` — rerun it after
+editing a template.
+
+## License
+
+[MIT](./LICENSE.md)
 
 <!-- Badges -->
 
-[npm-version-src]: https://img.shields.io/npm/v/my-laioutr-app/latest.svg?style=flat&colorA=020420&colorB=00DC82
-[npm-version-href]: https://npmjs.com/package/my-laioutr-app
-[npm-downloads-src]: https://img.shields.io/npm/dm/my-laioutr-app.svg?style=flat&colorA=020420&colorB=00DC82
-[npm-downloads-href]: https://npm.chart.dev/my-laioutr-app
-[license-src]: https://img.shields.io/npm/l/my-laioutr-app.svg?style=flat&colorA=020420&colorB=00DC82
-[license-href]: https://npmjs.com/package/my-laioutr-app
+[npm-version-src]: https://img.shields.io/npm/v/@laioutr/app-essentials-mailer/latest.svg?style=flat&colorA=020420&colorB=00DC82
+[npm-version-href]: https://npmjs.com/package/@laioutr/app-essentials-mailer
+[license-src]: https://img.shields.io/npm/l/@laioutr/app-essentials-mailer.svg?style=flat&colorA=020420&colorB=00DC82
+[license-href]: https://npmjs.com/package/@laioutr/app-essentials-mailer
 [nuxt-src]: https://img.shields.io/badge/Nuxt-020420?logo=nuxt.js
 [nuxt-href]: https://nuxt.com
-[laioutr-src]: https://img.shields.io/badge/%F0%9F%A6%99_Laioutr_App-702DCE
-[laioutr-href]: https://www.laioutr.com/
+[laioutr-src]: https://img.shields.io/badge/%F0%9F%A6%99_Laioutr_App-702DCE?labelColor=020420
+[laioutr-href]: https://laioutr.com

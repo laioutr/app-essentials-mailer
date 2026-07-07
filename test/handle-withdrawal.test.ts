@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { handleWithdrawal } from '../src/runtime/server/mail/withdrawal/handleWithdrawal';
 import type { MailMessage, MailTransport, SendResult } from '../src/runtime/server/mail/transport/types';
+import { handleWithdrawal } from '../src/runtime/server/mail/withdrawal/handleWithdrawal';
 
 const input = { name: 'Alice', orderReference: 'ORD-42', email: 'alice@example.com' };
 const cfg = (o = {}) => ({

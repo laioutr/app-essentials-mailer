@@ -1,9 +1,10 @@
+/* eslint-disable no-console -- build-time CLI script; stdout/stderr are its intended output. */
 // Compiles Maizzle email templates to placeholder-preserving HTML shells at BUILD time.
 // Maizzle (@maizzle/framework) is a devDependency and runs only here — it never enters
 // the published runtime bundle. Output modules are consumed by the runtime renderer.
-import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { dirname, join, basename } from 'node:path';
 import { render } from '@maizzle/framework';
 import config from '../maizzle.config.mjs';
 

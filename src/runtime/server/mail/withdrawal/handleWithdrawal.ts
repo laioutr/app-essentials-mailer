@@ -1,7 +1,7 @@
 import pRetry, { AbortError } from 'p-retry';
 import { getWithdrawalStrings } from './strings';
 import type { FormEmailField, RenderedEmail } from '../template/renderFormEmail';
-import type { MailMessage, MailTransport, MailerConfig } from '../transport/types';
+import type { MailerConfig, MailMessage, MailTransport } from '../transport/types';
 
 export interface WithdrawalInput {
   name: string;

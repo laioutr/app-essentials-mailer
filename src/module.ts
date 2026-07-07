@@ -2,8 +2,8 @@
 import { createResolver, defineNuxtModule, installModule } from '@nuxt/kit';
 import { defu } from 'defu';
 import { registerLaioutrApp } from '@laioutr-core/kit';
-import { name, version } from '../package.json';
 import type { MailerConfig, ModuleOptions } from './config-types';
+import { name, version } from '../package.json';
 
 export type { ModuleOptions };
 

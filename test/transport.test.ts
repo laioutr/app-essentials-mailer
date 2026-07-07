@@ -9,8 +9,8 @@ vi.mock('nodemailer', () => ({
   default: { createTransport: createTransportMock },
 }));
 
-import { createSmtpTransport } from '../src/runtime/server/mail/transport/smtp';
 import { resolveTransport } from '../src/runtime/server/mail/transport/resolveTransport';
+import { createSmtpTransport } from '../src/runtime/server/mail/transport/smtp';
 
 const smtp = {
   type: 'smtp' as const,
