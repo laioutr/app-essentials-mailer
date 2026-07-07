@@ -1029,8 +1029,11 @@ export default defineEssentialsMailerAction(WithdrawalAction, async ({ input, cl
 - [ ] **Step 4: Full type gate + build**
 
 Run: `pnpm dev:prepare` → completes (handler discovered under `orchestrDirs`).
-Run: `pnpm exec nuxi typecheck` → PASS (token import, `#imports`, `useRuntimeConfig` all resolve).
+Run: `pnpm exec nuxi typecheck` → PASS (app context; excludes `src/runtime/server`).
+Run the server nitro context: `pnpm exec vue-tsc --noEmit -p src/runtime/server/tsconfig.json` → PASS.
 Run: `pnpm prepack` → emits `dist/runtime/server/orchestr/legal/withdrawal.action.js`.
+
+> **Implementation note (as built):** the orchestr auto-import `defineOrchestr` is registered only in the **consumer** nitro context, not the module-root `.nuxt`. So `src/runtime/server/tsconfig.json` was repointed to extend **`../../../playground/.nuxt/tsconfig.server.json`** (was module-root `.nuxt/tsconfig.server.json`). Tasks 1–6/8 didn't use orchestr `#imports`, so they passed under the root context; Task 7 is the first to, which forced the switch. The server type gate therefore requires `pnpm dev:prepare` to have prepared the playground first.
 
 - [ ] **Step 5: Unit suite still green** — `pnpm vitest run` → PASS.
 

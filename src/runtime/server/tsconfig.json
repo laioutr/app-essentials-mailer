@@ -1,4 +1,5 @@
 {
-  "extends": "../../../.nuxt/tsconfig.server.json",
+  "//": "Type-check the runtime/server (Nitro) files against the PLAYGROUND's nitro context, not the module-root's. The module-root .nuxt does not install consumer modules (frontend-core, orchestr), so its #imports lacks orchestr auto-imports like defineOrchestr. The playground is the realistic consumer where those are registered. Requires `pnpm dev:prepare` first.",
+  "extends": "../../../playground/.nuxt/tsconfig.server.json",
   "include": ["./**/*.ts"]
 }
