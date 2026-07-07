@@ -14,5 +14,13 @@ export default defineNuxtConfig({
     transport: { type: 'smtp', host: 'localhost', port: 1025, auth: { user: 'dev', pass: 'dev' } },
     from: 'Dev Shop <noreply@localhost>',
     recipient: 'trader@localhost',
+    brand: {
+      shopName: 'Dev Shop',
+      shopUrl: 'https://dev.localhost',
+      footerLinks: [
+        { label: 'Imprint', url: 'https://dev.localhost/imprint' },
+        { label: 'Privacy', url: 'https://dev.localhost/privacy' },
+      ],
+    },
   },
 });

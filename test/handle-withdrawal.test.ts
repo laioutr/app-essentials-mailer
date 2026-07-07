@@ -8,6 +8,7 @@ const cfg = (o = {}) => ({
   from: 'Shop <noreply@example.com>',
   recipient: 'trader@example.com',
   replyToConsumer: true,
+  brand: { shopName: 'Test Shop' },
   ...o,
 });
 // Fake renderer — no shell/Maizzle needed.

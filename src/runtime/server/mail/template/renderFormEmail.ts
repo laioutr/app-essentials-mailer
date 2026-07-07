@@ -6,6 +6,11 @@ export interface FormEmailField {
   value: string;
 }
 
+export interface FormEmailLink {
+  label: string;
+  url: string;
+}
+
 export interface RenderFormEmailOptions {
   /**
    * Compiled Maizzle shell: a Handlebars template with {{scalar}} tokens and a
@@ -19,6 +24,12 @@ export interface RenderFormEmailOptions {
   submittedAt: Date;
   /** BCP-47 locale; used for chrome labels + UTC date formatting. */
   locale: string;
+  /** Shop display name shown in the header + copyright line. */
+  shopName: string;
+  /** Storefront URL the header shop name links to; plain text when omitted. */
+  shopUrl?: string;
+  /** Footer links (imprint, privacy, …); footer link row is omitted when empty. */
+  footerLinks?: FormEmailLink[];
 }
 
 export interface RenderedEmail {
@@ -70,6 +81,11 @@ export function renderFormEmail(opts: RenderFormEmailOptions): RenderedEmail {
     submittedAt,
     submittedAtLabel: chrome.submittedAt,
     fields: opts.fields,
+    shopName: opts.shopName,
+    shopUrl: opts.shopUrl,
+    footerLinks: opts.footerLinks,
+    // Copyright year — UTC to match submittedAt; locale-neutral, no chrome needed.
+    year: String(opts.submittedAt.getUTCFullYear()),
   });
 
   const text = convert(html, { wordwrap: false });

@@ -17,6 +17,9 @@ export type RenderEmail = (opts: {
   fields: FormEmailField[];
   submittedAt: Date;
   locale: string;
+  shopName: string;
+  shopUrl?: string;
+  footerLinks?: { label: string; url: string }[];
 }) => RenderedEmail;
 
 export interface HandleWithdrawalDeps {
@@ -88,6 +91,12 @@ export async function handleWithdrawal({
     { label: strings.fieldLabels.orderReference, value: input.orderReference },
     { label: strings.fieldLabels.email, value: input.email },
   ];
+  // Shop branding — identical header/footer on both emails.
+  const brand = {
+    shopName: config.brand.shopName,
+    shopUrl: config.brand.shopUrl,
+    footerLinks: config.brand.footerLinks,
+  };
 
   // 1. Store notice — critical.
   const storeBody = renderEmail({
@@ -97,6 +106,7 @@ export async function handleWithdrawal({
     fields,
     submittedAt,
     locale,
+    ...brand,
   });
   const storeMessage: MailMessage = {
     from: config.from,
@@ -121,6 +131,7 @@ export async function handleWithdrawal({
     fields,
     submittedAt,
     locale,
+    ...brand,
   });
   const ackMessage: MailMessage = {
     from: config.from,

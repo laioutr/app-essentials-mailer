@@ -46,17 +46,30 @@ export default defineNuxtConfig({
       from: 'Shop <noreply@example.com>', // sender; may be "Display Name <addr>"
       recipient: 'widerruf@example.com', // trader address that receives withdrawal notices
       replyToConsumer: true, // store-notice reply-to = the consumer's email (default true)
+      brand: {
+        shopName: 'Example Shop', // shown in the email header + copyright line
+        shopUrl: 'https://example.com', // optional; header shop name links here
+        footerLinks: [
+          // optional; rendered in order, ` · `-joined, in the footer
+          { label: 'Imprint', url: 'https://example.com/imprint' },
+          { label: 'Privacy', url: 'https://example.com/privacy' },
+        ],
+      },
     },
   },
 })
 ```
 
-| Key               | Type                         | Notes                                                                        |
-| ----------------- | ---------------------------- | ---------------------------------------------------------------------------- |
-| `transport`       | `{ type: 'smtp', … }`        | SMTP connection settings (`host`, `port`, `secure?`, `auth`).                |
-| `from`            | `string`                     | Sender address; `"Display Name <addr>"` accepted.                            |
-| `recipient`       | `string`                     | Trader address that receives withdrawal notices.                             |
-| `replyToConsumer` | `boolean` (default `true`)   | When not `false`, the store-notice `reply-to` is the consumer's email.       |
+| Key                | Type                         | Notes                                                                        |
+| ------------------ | ---------------------------- | ---------------------------------------------------------------------------- |
+| `transport`        | `{ type: 'smtp', … }`        | SMTP connection settings (`host`, `port`, `secure?`, `auth`).                |
+| `from`             | `string`                     | Sender address; `"Display Name <addr>"` accepted.                            |
+| `recipient`        | `string`                     | Trader address that receives withdrawal notices.                             |
+| `replyToConsumer`  | `boolean` (default `true`)   | When not `false`, the store-notice `reply-to` is the consumer's email.       |
+| `brand`            | `{ shopName, shopUrl?, footerLinks? }` | Shop branding for every email's header + footer (**required**).    |
+| `brand.shopName`   | `string`                     | Shop display name — header and `© {year} {shopName}` footer line.            |
+| `brand.shopUrl`    | `string` (optional)          | Storefront URL the header shop name links to; plain text when omitted.       |
+| `brand.footerLinks`| `{ label, url }[]` (optional)| Footer links (imprint, privacy, …), rendered in order; omitted when empty.   |
 
 There is **no config validation** by design — a misconfiguration surfaces as a failed
 send at request time, not at boot.

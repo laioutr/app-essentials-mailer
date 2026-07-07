@@ -67,7 +67,12 @@ describe('createSmtpTransport', () => {
 describe('resolveTransport', () => {
   it('returns an smtp transport for type "smtp"', async () => {
     sendMailMock.mockResolvedValue({ messageId: 'x' });
-    await resolveTransport({ transport: smtp, from: 'a@b.com', recipient: 'c@d.com' }).send(message);
+    await resolveTransport({
+      transport: smtp,
+      from: 'a@b.com',
+      recipient: 'c@d.com',
+      brand: { shopName: 'Shop' },
+    }).send(message);
     expect(createTransportMock).toHaveBeenCalledTimes(1);
   });
 

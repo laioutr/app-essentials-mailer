@@ -21,6 +21,21 @@ describe('compiled form-email shell', () => {
     }
   });
 
+  it('preserves the brand header/footer tokens (runtime {{#if}} / {{#each footerLinks}})', () => {
+    for (const token of [
+      '{{shopName}}',
+      '{{#if shopUrl}}',
+      'href="{{shopUrl}}"',
+      '{{#if footerLinks}}',
+      '{{#each footerLinks}}',
+      'href="{{url}}"',
+      '{{#unless @last}}',
+      '{{year}}',
+    ]) {
+      expect(formEmailShell).toContain(token);
+    }
+  });
+
   it('has inlined styles (Maizzle CSS inlining ran)', () => {
     expect(formEmailShell).toMatch(/style="/);
   });
