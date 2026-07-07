@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/types.d.mts",
       "import": "./dist/module.mjs"
+    },
+    "./server": {
+      "types": "./dist/runtime/server/mail/index.d.ts",
+      "import": "./dist/runtime/server/mail/index.js"
     }
   },
   "main": "./dist/module.mjs",
