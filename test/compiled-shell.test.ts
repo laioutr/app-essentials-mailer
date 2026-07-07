@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { formEmailShell } from '../src/runtime/emails/compiled/form-email';
 
 describe('compiled form-email shell', () => {
-  it('preserves every runtime placeholder', () => {
+  it('preserves every runtime scalar placeholder', () => {
     for (const token of [
       '{{heading}}',
       '{{intro}}',
@@ -10,8 +10,13 @@ describe('compiled form-email shell', () => {
       '{{formTypeLabel}}',
       '{{submittedAt}}',
       '{{submittedAtLabel}}',
-      '{{{fields}}}',
     ]) {
+      expect(formEmailShell).toContain(token);
+    }
+  });
+
+  it('preserves the Handlebars fields loop (runtime {{#each}}, not a build-time Vue v-for)', () => {
+    for (const token of ['{{#each fields}}', '{{label}}', '{{value}}', '{{/each}}']) {
       expect(formEmailShell).toContain(token);
     }
   });

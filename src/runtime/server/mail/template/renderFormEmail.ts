@@ -1,3 +1,4 @@
+import Handlebars from 'handlebars';
 import { convert } from 'html-to-text';
 
 export interface FormEmailField {
@@ -6,7 +7,10 @@ export interface FormEmailField {
 }
 
 export interface RenderFormEmailOptions {
-  /** Compiled shell with {{scalar}} tokens and a {{{fields}}} raw slot. */
+  /**
+   * Compiled Maizzle shell: a Handlebars template with {{scalar}} tokens and a
+   * {{#each fields}} row loop. Authored in `emails/*.vue`, built by `build:emails`.
+   */
   shell: string;
   heading: string;
   intro: string;
@@ -28,29 +32,26 @@ const CHROME = {
   en: { formType: 'Form type', submittedAt: 'Received at' },
 } as const;
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+/**
+ * Compiled-template cache keyed by shell string. Shells are static module constants,
+ * so each is parsed by Handlebars once and reused across every request.
+ */
+const compiled = new Map<string, ReturnType<typeof Handlebars.compile>>();
 
-/** A full, inline-styled table of label/value rows (injected into the shell's {{{fields}}} slot). */
-function renderFieldsTable(fields: FormEmailField[]): string {
-  const rows = fields
-    .map(
-      (f) =>
-        `<tr><td style="padding:4px 8px;font-weight:bold;">${escapeHtml(f.label)}</td>` +
-        `<td style="padding:4px 8px;">${escapeHtml(f.value)}</td></tr>`,
-    )
-    .join('');
-  return `<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">${rows}</table>`;
+function compileShell(shell: string): ReturnType<typeof Handlebars.compile> {
+  let template = compiled.get(shell);
+  if (!template) {
+    template = Handlebars.compile(shell);
+    compiled.set(shell, template);
+  }
+  return template;
 }
 
 /**
- * Pure: fills a precompiled Maizzle shell with per-request data. No email framework at runtime.
- * Function replacers are used so values containing `$` are inserted literally.
+ * Pure: fills a precompiled Maizzle shell with per-request data via Handlebars.
+ * Handlebars is a small runtime template engine (no email framework at runtime); its
+ * default `{{ }}` escaping HTML-escapes every interpolated value, so callers pass raw
+ * strings and untrusted user input can never inject markup.
  */
 export function renderFormEmail(opts: RenderFormEmailOptions): RenderedEmail {
   const lang = opts.locale.split('-')[0].toLowerCase();
@@ -61,20 +62,15 @@ export function renderFormEmail(opts: RenderFormEmailOptions): RenderedEmail {
     timeZone: 'UTC',
   }).format(opts.submittedAt);
 
-  const replacements: Record<string, string> = {
-    '{{heading}}': escapeHtml(opts.heading),
-    '{{intro}}': escapeHtml(opts.intro),
-    '{{formType}}': escapeHtml(opts.formType),
-    '{{formTypeLabel}}': escapeHtml(chrome.formType),
-    '{{submittedAt}}': escapeHtml(submittedAt),
-    '{{submittedAtLabel}}': escapeHtml(chrome.submittedAt),
-    '{{{fields}}}': renderFieldsTable(opts.fields),
-  };
-
-  let html = opts.shell;
-  for (const [token, value] of Object.entries(replacements)) {
-    html = html.replaceAll(token, () => value);
-  }
+  const html = compileShell(opts.shell)({
+    heading: opts.heading,
+    intro: opts.intro,
+    formType: opts.formType,
+    formTypeLabel: chrome.formType,
+    submittedAt,
+    submittedAtLabel: chrome.submittedAt,
+    fields: opts.fields,
+  });
 
   const text = convert(html, { wordwrap: false });
   return { html, text };

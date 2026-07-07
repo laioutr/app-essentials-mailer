@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { renderFormEmail } from '../src/runtime/server/mail/template/renderFormEmail';
 
-// Fixture shell mirroring the compiled Maizzle output (tokens intact, {{{fields}}} in a div slot).
+// Fixture shell mirroring the compiled Maizzle output: {{scalar}} tokens + a {{#each fields}} loop.
 const shell = [
   '<p><span>{{heading}}</span></p>',
   '<p><span>{{intro}}</span></p>',
   '<p><strong><span>{{formTypeLabel}}</span>:</strong> <span>{{formType}}</span></p>',
-  '<div>{{{fields}}}</div>',
+  '<table><tbody>{{#each fields}}<tr><td>{{label}}</td><td>{{value}}</td></tr>{{/each}}</tbody></table>',
   '<p><strong><span>{{submittedAtLabel}}</span>:</strong> <span>{{submittedAt}}</span> (UTC)</p>',
 ].join('');
 
@@ -25,7 +25,7 @@ const base = {
 };
 
 describe('renderFormEmail', () => {
-  it('substitutes scalars, injects a field table, and resolves every placeholder', () => {
+  it('substitutes scalars, renders a row per field via the loop, and resolves every token', () => {
     const { html } = renderFormEmail(base);
     expect(html).toContain('New withdrawal');
     expect(html).toContain('A new withdrawal has been submitted.');
@@ -34,7 +34,8 @@ describe('renderFormEmail', () => {
       expect(html).toContain(f.label);
       expect(html).toContain(f.value);
     }
-    expect(html).toContain('<table');
+    // One <tr> per field — the Handlebars {{#each}} loop ran, not a single JS-built blob.
+    expect(html.match(/<tr>/g)).toHaveLength(base.fields.length);
     expect(html).not.toContain('{{');
   });
 
@@ -51,7 +52,7 @@ describe('renderFormEmail', () => {
     expect(html).toContain('Eingegangen am');
   });
 
-  it('HTML-escapes user-supplied values', () => {
+  it('HTML-escapes user-supplied values (Handlebars default escaping)', () => {
     const { html } = renderFormEmail({
       ...base,
       fields: [{ label: 'Name', value: 'Müller & <script>x</script>' }],

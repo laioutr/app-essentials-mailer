@@ -15,10 +15,11 @@ This plan covers **only the app repo** (`@laioutr/app-essentials-mailer`) — se
 ## Decisions taken (supersede the design doc where noted)
 
 1. **No config validation.** The design's §7.2 zod-validated-in-`setup` is dropped. Config is plain TS types, merged into `runtimeConfig[name]` **private-only**, no `.parse()`. A typo'd config surfaces as a failed send at request time. (`zod` is therefore not a direct dependency of this app.)
-2. **Templating = Maizzle, precompiled.** Supersedes §7.4's "MJML at runtime". Author in Maizzle → compile to an HTML shell at **our** build (Maizzle is a devDependency, never in a consumer's runtime) → runtime pure-string interpolation + `html-to-text` for plaintext. Chosen because this app is a **distributed module**: runtime renderers (runtime-MJML, vue-email, runtime-Maizzle) would push a heavy render pipeline into every consumer's Nitro; precompiling keeps consumers light while preserving family-grade authoring.
+2. **Templating = Maizzle, precompiled.** Supersedes §7.4's "MJML at runtime". Author in Maizzle → compile to an HTML shell at **our** build (Maizzle is a devDependency, never in a consumer's runtime) → runtime template-fill (see Decision 6) + `html-to-text` for plaintext. Chosen because this app is a **distributed module**: runtime renderers (runtime-MJML, vue-email, runtime-Maizzle) would push a heavy render pipeline into every consumer's Nitro; precompiling keeps consumers light while preserving family-grade authoring. Maizzle 6 is Vue-SFC based, so templates are `emails/*.vue` compiled via `render()`, and dynamic tokens are preserved through compilation with `v-pre` (Maizzle's documented `<Raw>` primitive is the equivalent).
 3. **Retry = `p-retry`, pre-delivery errors only.** The critical store-notice send retries once (~500 ms backoff) **only** on transient connection errors (`ECONNECTION`, `ETIMEDOUT`, `ESOCKET`, `EDNS`); any other error (bad recipient, auth, or anything after the server accepted the message) aborts immediately via `p-retry`'s `AbortError`, to avoid duplicate delivery.
 4. **Token is branch-only, not yet published.** Tasks 1–6 do not depend on it. Task 7 (the action handler) is **gated on the token being installable**; keep the version lookup + peer-floor bump there.
 5. **Family backbone, seams only.** Build the five forward-compat seams (exportable Maizzle config, key-addressed renderer, configurable template-dir glob, shared server API, reserved registration hook) so multi-app template contribution is an additive change later — do not build the registry now.
+6. **Runtime engine = Handlebars** (supersedes the dumb `String.replaceAll` + raw `{{{fields}}}` slot described in Tasks 3 & 4). Research (Maizzle has no native runtime conditionals; the blessed pattern is "leave tokens intact, fill with a downstream engine") plus the family-backbone goal (external apps contribute templates needing runtime `{{#if}}`/`{{#each}}`, which string-replace cannot express) settled on a small runtime engine. **Handlebars** because our placeholders already use `{{ }}` (so existing scalar tokens are valid Handlebars unchanged) and its delimiters are in Maizzle's `css.purge.backend` preserve-defaults. `handlebars` is a **runtime dependency** (ships in the consumer bundle); default `{{ }}` escaping HTML-escapes all interpolated data, so the renderer passes raw values (no manual `escapeHtml`). The variable field list is authored as a real `{{#each fields}}` loop inside a `v-pre` block in `emails/form-email.vue` — **not** a JS-built HTML blob. Compiled templates are cached per shell string. This reshaped Tasks 3 (template), 4 (renderer), and 8 (which re-exports the Handlebars-backed `renderFormEmail`); the string-replace code in those task bodies is historical.
 
 ## Prerequisites
 
@@ -43,8 +44,8 @@ _Every task's requirements implicitly include this section._
 
 **Build-time (not shipped to runtime):**
 - `maizzle.config.mjs` — the shared Maizzle config (Tailwind theme, transformers, components, content globs). Exportable so future apps compile against the same config.
-- `emails/form-email.html` — the **generic** Maizzle form-email template: styled skeleton with placeholders (`{{heading}}`, `{{intro}}`, `{{formType}}`, `{{formTypeLabel}}`, `{{submittedAt}}`, `{{submittedAtLabel}}`) and a raw fields slot (`{{{fields}}}`), all preserved through compilation.
-- `scripts/build-emails.mjs` — compiles `emails/*.html` via Maizzle `build()` into generated runtime modules.
+- `emails/form-email.vue` — the **generic** Maizzle (Vue-SFC) form-email template: styled skeleton with scalar placeholders (`{{heading}}`, `{{intro}}`, `{{formType}}`, `{{formTypeLabel}}`, `{{submittedAt}}`, `{{submittedAtLabel}}`) and a Handlebars `{{#each fields}}` row loop, all `v-pre`-preserved through compilation (Decision 6).
+- `scripts/build-emails.mjs` — compiles `emails/*.vue` via Maizzle `render()` into generated runtime modules.
 
 **Created (runtime):**
 - `src/config-types.ts` — plain TS config types (`SmtpTransportConfig`, `TransportConfig`, `MailerConfig`, `ModuleOptions`). No zod.
@@ -261,6 +262,8 @@ git commit -m "chore: self-contained dev playground"
 
 ### Task 3: Maizzle precompile pipeline (spike + lock the config)
 
+> **Superseded by Decision 6 (as implemented):** template is `emails/form-email.vue` (Maizzle 6 = Vue SFC), tokens are preserved with `v-pre`, and the fields slot is a Handlebars `{{#each fields}}` loop — **not** a raw `{{{fields}}}` slot. The `.html`/`build()` details below are historical.
+
 Stand up the build-time email compilation. **This task contains a spike**: the exact Maizzle config to *preserve* our runtime placeholders through compilation (the documented "compile to a backend templating format" technique — Maizzle compiles to Blade for exactly this) must be confirmed empirically, because everything downstream reads the compiled shell. Acceptance is defined by output, not by an assumed config.
 
 **Files:**
@@ -331,6 +334,8 @@ git commit -m "feat: Maizzle precompile pipeline producing a placeholder-preserv
 ---
 
 ### Task 4: Template renderer (pure shell interpolation)
+
+> **Superseded by Decision 6 (as implemented):** the renderer compiles the shell with **Handlebars** (`Handlebars.compile(shell)(data)`, cached per shell) instead of `String.replaceAll`, and relies on Handlebars' default `{{ }}` escaping instead of a manual `escapeHtml`. There is no `{{{fields}}}` slot — fields render via the template's `{{#each}}` loop. The `.replaceAll`/`escapeHtml`/`renderFieldsTable` code below is historical; the public signature (`renderFormEmail(opts) → { html, text }`, `FormEmailField`, `RenderedEmail`) is unchanged.
 
 The runtime renderer: substitutes per-request data into a compiled shell and derives plaintext. Pure and framework-free (no Maizzle at runtime); the shell is passed in, so tests use a fixture — no dependency on Task 3's generated file.
 
