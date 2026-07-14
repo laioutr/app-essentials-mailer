@@ -1,5 +1,5 @@
 <template>
-  <Html>
+  <Html :lang="'{{htmlLang}}'" :dir="'{{textDirection}}'">
     <Head>
       <style>
         @import "@maizzle/tailwindcss";
@@ -32,7 +32,11 @@
       </style>
     </Head>
     <Tailwind>
-      <Body class="m-0 p-0 w-full bg-page font-brand">
+      <Body
+        :xml-lang="'{{htmlLang}}'"
+        :dir="'{{textDirection}}'"
+        class="m-0 p-0 w-full bg-page font-brand"
+      >
         <slot />
       </Body>
     </Tailwind>

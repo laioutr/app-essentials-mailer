@@ -4,14 +4,18 @@ import { renderFormEmail } from '../src/runtime/server/mail/template/renderFormE
 // Fixture shell mirroring the compiled Maizzle output: {{scalar}} tokens, a {{#each fields}}
 // loop, the header {{#if shopUrl}} conditional, and the {{#if footerLinks}}/{{#each}} footer.
 const shell = [
+  '<html lang="{{htmlLang}}" dir="{{textDirection}}">',
+  '<body xml:lang="{{htmlLang}}" dir="{{textDirection}}">',
   '{{#if shopUrl}}<a href="{{shopUrl}}">{{shopName}}</a>{{else}}<span>{{shopName}}</span>{{/if}}',
   '<p><span>{{heading}}</span></p>',
   '<p><span>{{intro}}</span></p>',
   '<p><strong><span>{{formTypeLabel}}</span>:</strong> <span>{{formType}}</span></p>',
   '<table><tbody>{{#each fields}}<tr><td>{{label}}</td><td>{{value}}</td></tr>{{/each}}</tbody></table>',
-  '<p><strong><span>{{submittedAtLabel}}</span>:</strong> <span>{{submittedAt}}</span> (UTC)</p>',
+  '<p><strong><span>{{submittedAtLabel}}</span>:</strong> <span>{{submittedAt}}</span> ({{timeZone}})</p>',
   '{{#if footerLinks}}<nav>{{#each footerLinks}}<a href="{{url}}">{{label}}</a>{{#unless @last}} · {{/unless}}{{/each}}</nav>{{/if}}',
   '<small>© {{year}} {{shopName}}</small>',
+  '</body>',
+  '</html>',
 ].join('');
 
 const base = {
@@ -49,23 +53,57 @@ describe('renderFormEmail', () => {
     expect(html).not.toContain('{{');
   });
 
-  it('formats submittedAt in UTC and uses English chrome labels for en', () => {
+  it('formats submittedAt in UTC by default and uses English metadata and chrome', () => {
     const { html } = renderFormEmail(base);
-    expect(html).toContain('2026');
+    expect(html).toContain('<html lang="en" dir="ltr">');
+    expect(html).toContain('<body xml:lang="en" dir="ltr">');
+    expect(html).toContain('July 6, 2026 at 10:30:00 AM');
+    expect(html).toContain('(UTC)');
     expect(html).toContain('Form type');
     expect(html).toContain('Received at');
   });
 
-  it('uses German chrome labels for a de locale', () => {
+  it('uses German metadata and chrome for a de locale', () => {
     const { html } = renderFormEmail({ ...base, locale: 'de-DE' });
+    expect(html).toContain('<html lang="de" dir="ltr">');
+    expect(html).toContain('<body xml:lang="de" dir="ltr">');
     expect(html).toContain('Formulartyp');
     expect(html).toContain('Eingegangen am');
   });
 
+  it('uses English copy metadata for an unsupported content language', () => {
+    const { html } = renderFormEmail({ ...base, locale: 'fr-FR' });
+    expect(html).toContain('<html lang="en" dir="ltr">');
+    expect(html).toContain('Form type');
+    expect(html).toContain('Received at');
+  });
+
+  it('formats the timestamp in a configured canonical IANA timezone', () => {
+    const { html } = renderFormEmail({ ...base, timeZone: 'europe/berlin' });
+    expect(html).toContain('July 6, 2026 at 12:30:00 PM');
+    expect(html).toContain('(Europe/Berlin)');
+  });
+
+  it('falls back to UTC when the configured timezone is invalid', () => {
+    const { html } = renderFormEmail({ ...base, timeZone: 'Not/AZone' });
+    expect(html).toContain('July 6, 2026 at 10:30:00 AM');
+    expect(html).toContain('(UTC)');
+  });
+
+  it('derives the copyright year in the effective timezone', () => {
+    const { html } = renderFormEmail({
+      ...base,
+      submittedAt: new Date('2025-12-31T23:30:00Z'),
+      timeZone: 'Europe/Berlin',
+    });
+    expect(html).toContain('January 1, 2026 at 12:30:00 AM');
+    expect(html).toContain('© 2026 Example Shop');
+  });
+
   it('renders the shop-name header (linked) and a footer copyright with the shop name + year', () => {
     const { html } = renderFormEmail(base);
-    expect(html).toContain('<a href="https://shop.example">Example Shop</a>'); // linked header
-    expect(html).toContain('© 2026 Example Shop'); // copyright, UTC year
+    expect(html).toContain('<a href="https://shop.example">Example Shop</a>');
+    expect(html).toContain('© 2026 Example Shop');
   });
 
   it('renders each footer link in order, joined by a separator', () => {

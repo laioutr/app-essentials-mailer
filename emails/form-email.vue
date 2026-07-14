@@ -50,7 +50,7 @@
               <!-- footer: submitted-at meta + optional links + copyright -->
               <tr>
                 <td class="px-8 pt-5 pb-7 border-t border-page font-brand">
-                  <div class="text-[13px] text-muted"><span v-pre><span class="font-semibold">{{submittedAtLabel}}</span>: {{submittedAt}} (UTC)</span></div>
+                  <div class="text-[13px] text-muted"><span v-pre><span class="font-semibold">{{submittedAtLabel}}</span>: {{submittedAt}} ({{timeZone}})</span></div>
                   <div v-pre>{{#if footerLinks}}<div class="pt-[14px] text-[13px] leading-relaxed">{{#each footerLinks}}<a href="{{url}}" class="font-medium text-accent-label no-underline">{{label}}</a>{{#unless @last}}<span class="text-sep"> &middot; </span>{{/unless}}{{/each}}</div>{{/if}}</div>
                   <div class="pt-[10px] text-[12px] text-muted"><span v-pre>&copy; {{year}} {{shopName}}</span></div>
                 </td>
@@ -84,7 +84,8 @@
     {{#if footerLinks}} + {{#each footerLinks}}/{{#unless @last}}  ` · `-joined footer links
 
   Scalars:  {{heading}} {{intro}} {{formTypeLabel}} {{formType}}
-            {{submittedAtLabel}} {{submittedAt}} {{shopName}} {{shopUrl}} {{year}}
+            {{submittedAtLabel}} {{submittedAt}} {{timeZone}}
+            {{htmlLang}} {{textDirection}} {{shopName}} {{shopUrl}} {{year}}
 
   Not withdrawal-specific — reused verbatim by any essentials form email.
 -->

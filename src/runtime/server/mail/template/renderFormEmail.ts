@@ -1,5 +1,6 @@
 import Handlebars from 'handlebars';
 import { convert } from 'html-to-text';
+import { resolveEmailLocale } from '../i18n';
 
 export interface FormEmailField {
   label: string;
@@ -22,8 +23,10 @@ export interface RenderFormEmailOptions {
   formType: string;
   fields: FormEmailField[];
   submittedAt: Date;
-  /** BCP-47 locale; used for chrome labels + UTC date formatting. */
+  /** BCP-47 locale used for supported-language selection and regional date formatting. */
   locale: string;
+  /** IANA timezone for displayed dates; omitted or invalid values use UTC. */
+  timeZone?: string;
   /** Shop display name shown in the header + copyright line. */
   shopName: string;
   /** Storefront URL the header shop name links to; plain text when omitted. */
@@ -65,12 +68,19 @@ function compileShell(shell: string): ReturnType<typeof Handlebars.compile> {
  * strings and untrusted user input can never inject markup.
  */
 export function renderFormEmail(opts: RenderFormEmailOptions): RenderedEmail {
-  const lang = opts.locale.split('-')[0].toLowerCase();
-  const chrome = CHROME[lang as keyof typeof CHROME] ?? CHROME.en;
-  const submittedAt = new Intl.DateTimeFormat(opts.locale, {
+  const { contentLanguage, direction, formatLocale, timeZone } = resolveEmailLocale(
+    opts.locale,
+    opts.timeZone,
+  );
+  const chrome = CHROME[contentLanguage];
+  const submittedAt = new Intl.DateTimeFormat(formatLocale, {
     dateStyle: 'long',
     timeStyle: 'medium',
-    timeZone: 'UTC',
+    timeZone,
+  }).format(opts.submittedAt);
+  const year = new Intl.DateTimeFormat('en', {
+    year: 'numeric',
+    timeZone,
   }).format(opts.submittedAt);
 
   const html = compileShell(opts.shell)({
@@ -81,11 +91,13 @@ export function renderFormEmail(opts: RenderFormEmailOptions): RenderedEmail {
     submittedAt,
     submittedAtLabel: chrome.submittedAt,
     fields: opts.fields,
+    htmlLang: contentLanguage,
+    textDirection: direction,
+    timeZone,
     shopName: opts.shopName,
     shopUrl: opts.shopUrl,
     footerLinks: opts.footerLinks,
-    // Copyright year — UTC to match submittedAt; locale-neutral, no chrome needed.
-    year: String(opts.submittedAt.getUTCFullYear()),
+    year,
   });
 
   const text = convert(html, { wordwrap: false });

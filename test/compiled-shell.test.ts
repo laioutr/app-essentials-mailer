@@ -10,6 +10,9 @@ describe('compiled form-email shell', () => {
       '{{formTypeLabel}}',
       '{{submittedAt}}',
       '{{submittedAtLabel}}',
+      '{{htmlLang}}',
+      '{{textDirection}}',
+      '{{timeZone}}',
     ]) {
       expect(formEmailShell).toContain(token);
     }
@@ -34,6 +37,18 @@ describe('compiled form-email shell', () => {
     ]) {
       expect(formEmailShell).toContain(token);
     }
+  });
+
+  it('preserves runtime language and direction metadata in every Maizzle wrapper', () => {
+    expect(formEmailShell).toContain(
+      '<html lang="{{htmlLang}}" dir="{{textDirection}}"',
+    );
+    expect(formEmailShell).toContain(
+      '<body xml:lang="{{htmlLang}}" dir="{{textDirection}}"',
+    );
+    expect(formEmailShell).toContain(
+      'role="article" aria-roledescription="email" lang="{{htmlLang}}" dir="{{textDirection}}"',
+    );
   });
 
   it('has inlined styles (Maizzle CSS inlining ran)', () => {
