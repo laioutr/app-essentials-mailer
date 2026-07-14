@@ -81,6 +81,30 @@ describe('handleWithdrawal', () => {
     expect(logger.error).toHaveBeenCalled();
   });
 
+  it('passes the configured timezone to both rendered messages', async () => {
+    const { transport } = recorder();
+    const render = vi.fn(renderEmail);
+
+    await handleWithdrawal({
+      input,
+      locale: 'de-DE',
+      config: cfg({ timeZone: 'Europe/Berlin' }),
+      transport,
+      renderEmail: render,
+      now,
+    });
+
+    expect(render).toHaveBeenCalledTimes(2);
+    expect(render).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ timeZone: 'Europe/Berlin' }),
+    );
+    expect(render).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ timeZone: 'Europe/Berlin' }),
+    );
+  });
+
   it('still returns success when the consumer ack fails (best-effort), logging it', async () => {
     const logger = { error: vi.fn() };
     const { transport } = recorder((m) => (m.to === 'alice@example.com' ? err('ECONNECTION') : undefined));

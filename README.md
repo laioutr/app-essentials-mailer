@@ -46,6 +46,7 @@ export default defineNuxtConfig({
       from: 'Shop <noreply@example.com>', // sender; may be "Display Name <addr>"
       recipient: 'widerruf@example.com', // trader address that receives withdrawal notices
       replyToConsumer: true, // store-notice reply-to = the consumer's email (default true)
+      timeZone: 'Europe/Berlin', // optional IANA zone; omitted/invalid values use UTC
       brand: {
         shopName: 'Example Shop', // shown in the email header + copyright line
         shopUrl: 'https://example.com', // optional; header shop name links here
@@ -66,10 +67,15 @@ export default defineNuxtConfig({
 | `from`             | `string`                     | Sender address; `"Display Name <addr>"` accepted.                            |
 | `recipient`        | `string`                     | Trader address that receives withdrawal notices.                             |
 | `replyToConsumer`  | `boolean` (default `true`)   | When not `false`, the store-notice `reply-to` is the consumer's email.       |
+| `timeZone`         | `string` (optional)          | IANA timezone for timestamps and copyright year; omitted/invalid values use `UTC`. |
 | `brand`            | `{ shopName, shopUrl?, footerLinks? }` | Shop branding for every email's header + footer (**required**).    |
 | `brand.shopName`   | `string`                     | Shop display name — header and `© {year} {shopName}` footer line.            |
 | `brand.shopUrl`    | `string` (optional)          | Storefront URL the header shop name links to; plain text when omitted.       |
 | `brand.footerLinks`| `{ label, url }[]` (optional)| Footer links (imprint, privacy, …), rendered in order; omitted when empty.   |
+
+`timeZone` affects the local calendar date/time shown in every email and the copyright year
+at New Year boundaries. The footer displays the effective canonical IANA identifier so the
+timestamp remains unambiguous. Omitted or invalid identifiers fall back to `UTC`.
 
 There is **no config validation** by design — a misconfiguration surfaces as a failed
 send at request time, not at boot.

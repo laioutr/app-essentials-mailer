@@ -17,6 +17,7 @@ export type RenderEmail = (opts: {
   fields: FormEmailField[];
   submittedAt: Date;
   locale: string;
+  timeZone?: string;
   shopName: string;
   shopUrl?: string;
   footerLinks?: { label: string; url: string }[];
@@ -106,6 +107,7 @@ export async function handleWithdrawal({
     fields,
     submittedAt,
     locale,
+    timeZone: config.timeZone,
     ...brand,
   });
   const storeMessage: MailMessage = {
@@ -131,6 +133,7 @@ export async function handleWithdrawal({
     fields,
     submittedAt,
     locale,
+    timeZone: config.timeZone,
     ...brand,
   });
   const ackMessage: MailMessage = {

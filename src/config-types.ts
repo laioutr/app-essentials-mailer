@@ -36,6 +36,8 @@ export interface MailerConfig {
   recipient: string;
   /** When not false (default true), the store-notice reply-to is the consumer's email. */
   replyToConsumer?: boolean;
+  /** IANA timezone for displayed dates; omitted or invalid values use UTC. */
+  timeZone?: string;
   /** Shop branding shown in every email's header and footer. */
   brand: MailerBrandConfig;
 }

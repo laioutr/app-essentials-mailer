@@ -14,6 +14,7 @@ export default defineNuxtConfig({
     transport: { type: 'smtp', host: 'localhost', port: 1025, auth: { user: 'dev', pass: 'dev' } },
     from: 'Dev Shop <noreply@localhost>',
     recipient: 'trader@localhost',
+    timeZone: 'Europe/Berlin',
     brand: {
       shopName: 'Dev Shop',
       shopUrl: 'https://dev.localhost',
