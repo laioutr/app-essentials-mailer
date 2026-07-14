@@ -1,3 +1,5 @@
+import { resolveContentLanguage } from '../i18n';
+
 export interface WithdrawalStrings {
   formType: string;
   subjectStoreNotice: string;
@@ -51,8 +53,7 @@ const STRINGS: Record<'de' | 'en', WithdrawalStrings> = {
   },
 };
 
-/** Localized withdrawal copy, keyed by the language part of the locale, English fallback. */
+/** Localized withdrawal copy, keyed by supported content language, English fallback. */
 export function getWithdrawalStrings(locale: string): WithdrawalStrings {
-  const lang = locale.split('-')[0].toLowerCase();
-  return STRINGS[lang as 'de' | 'en'] ?? STRINGS.en;
+  return STRINGS[resolveContentLanguage(locale)];
 }
