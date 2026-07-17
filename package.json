@@ -1,6 +1,6 @@
 {
   "name": "@laioutr/app-essentials-mailer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Laioutr Essentials Mailer — the shared mail backbone for essentials apps; v1 handles withdrawal-form submissions.",
   "repository": "laioutr/app-essentials-mailer",
   "license": "MIT",
