@@ -41,6 +41,9 @@ describe('createSmtpTransport', () => {
       port: 465,
       secure: true,
       auth: { user: 'u', pass: 'p' },
+      connectionTimeout: 8000,
+      greetingTimeout: 8000,
+      dnsTimeout: 8000,
     });
   });
 
