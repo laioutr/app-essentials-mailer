@@ -1,6 +1,22 @@
 # Changelog
 
 
+## v0.1.2
+
+[compare changes](https://github.com/laioutr/app-essentials-mailer/compare/v0.1.1...v0.1.2)
+
+### 🩹 Fixes
+
+- Await withdrawal consumer ack in the request path ([6877fad](https://github.com/laioutr/app-essentials-mailer/commit/6877fad))
+
+### 🏡 Chore
+
+- Publish package publicly ([b4dc030](https://github.com/laioutr/app-essentials-mailer/commit/b4dc030))
+
+### ❤️ Contributors
+
+- Sebastian Langer <sebastian.langer@laioutr.com>
+
 ## v0.1.1
 
 
