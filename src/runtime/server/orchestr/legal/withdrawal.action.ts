@@ -8,9 +8,10 @@ import { defineEssentialsMailerAction } from '../../middleware';
  * Registers the WithdrawalAction handler (auto-discovered via the module's orchestrDirs).
  * Sends two emails on top of the reusable mail layer:
  *   1. Store notice (critical) — awaited, retried once; failure returns success:false.
- *   2. Consumer acknowledgement (best-effort) — deferred past the response via event.waitUntil.
+ *   2. Consumer acknowledgement (best-effort) — awaited in the request path, retried; a failure
+ *      is logged but does not fail the withdrawal (the store notice already delivered it).
  */
-export default defineEssentialsMailerAction(WithdrawalAction, async ({ input, clientEnv, event }) => {
+export default defineEssentialsMailerAction(WithdrawalAction, async ({ input, clientEnv }) => {
   const locale = clientEnv.locale;
   const { sendMail, ctx, config } = useMailer(locale);
   const vars = { ...input, submittedAt: new Date() };
@@ -31,11 +32,13 @@ export default defineEssentialsMailerAction(WithdrawalAction, async ({ input, cl
     return { success: false, message: getWithdrawalStrings(locale).errors.deliveryFailed };
   }
 
-  // 2. Consumer acknowledgement — best-effort: deferred past the response, retried, failure logged.
-  event.waitUntil(
-    sendMail({ ...renderWithdrawalAck(ctx, vars), to: input.email, from: config.from }, { retries: 1 }).catch(
-      (error) => console.warn('[essentials-mailer] withdrawal consumer acknowledgement failed', error),
-    ),
+  // 2. Consumer acknowledgement — best-effort: awaited here, retried; a failure is logged but does
+  //    not fail the withdrawal (the store notice already delivered it to the trader).
+  await sendMail(
+    { ...renderWithdrawalAck(ctx, vars), to: input.email, from: config.from },
+    { retries: 1 },
+  ).catch((error) =>
+    console.warn('[essentials-mailer] withdrawal consumer acknowledgement failed', error),
   );
 
   return { success: true };
