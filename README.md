@@ -98,6 +98,37 @@ import {
 - `resolveTransport(config)` / `createSmtpTransport(smtp)` — the transport seam.
 - `renderFormEmail(opts)` — fill the compiled form-email layout with per-request data → `{ html, text }`.
 
+## Sending mail from a server handler
+
+Inside this module (orchestr actions, server routes, Nitro handlers) use the auto-imported
+**`useMailer`** composable rather than wiring the transport by hand. It reads the private
+config once, resolves the transport, and hands back a bound sender plus the render context:
+
+```ts
+import { useMailer } from '#imports' // auto-imported in server context; the import is optional
+
+// `locale` and `vars` come from the request (e.g. clientEnv.locale + the form input).
+const { sendMail, ctx, config } = useMailer(locale)
+
+await sendMail(
+  {
+    ...renderWithdrawalStoreNotice(ctx, vars), // a template → { subject, html, text }
+    from: config.from,
+    to: config.recipient,
+    replyTo: vars.email,
+  },
+  { retries: 1 }, // SendOptions: retries (default 0) + per-attempt timeout (default 10s)
+)
+```
+
+- `useMailer(locale)` → `{ sendMail, ctx, config }`.
+- `sendMail(message, options?)` — the delivery primitive **bound to the config's transport**, so no `transport` argument here (unlike the `/server` export).
+- `ctx` — the `MailRenderContext` (locale, timezone, brand) every template takes as its first argument.
+- `config` — the resolved `MailerConfig`, for addressing (`from`, `recipient`, `replyToConsumer`).
+
+A template maps `(ctx, vars)` → `{ subject, html, text }`; spread that over the addressing
+fields (`from`, `to`, optional `replyTo`) to form the `MailMessage` that `sendMail` delivers.
+
 ## How emails are authored
 
 Templates live in `emails/*.vue` and are authored with **[Maizzle](https://maizzle.com)**
