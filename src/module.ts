@@ -22,10 +22,14 @@ export default defineNuxtModule<ModuleOptions>({
     nuxt.options.build.transpile.push(resolve('./runtime'));
 
     // PRIVATE-only. No validation (by design). Never copied to runtimeConfig.public.
-    nuxt.options.runtimeConfig[name] = defu(
-      nuxt.options.runtimeConfig[name] as Parameters<typeof defu>[0],
-      options,
-    );
+    nuxt.options.runtimeConfig[name] = defu(nuxt.options.runtimeConfig[name] as Parameters<typeof defu>[0], options);
+
+    // Serve the picker logo (and any future app assets).
+    nuxt.options.nitro.publicAssets ??= [];
+    nuxt.options.nitro.publicAssets.push({
+      dir: resolveRuntimeModule('./app/public'),
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+    });
 
     await registerLaioutrApp({
       name,
