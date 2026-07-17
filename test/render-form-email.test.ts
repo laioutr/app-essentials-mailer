@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { renderFormEmail } from '../src/runtime/server/mail/template/renderFormEmail';
 import type { MailRenderContext } from '../src/runtime/server/mail/template/types';
+import { renderFormEmail } from '../src/runtime/server/mail/template/renderFormEmail';
 
 const ctx: MailRenderContext = {
   locale: 'en-US',

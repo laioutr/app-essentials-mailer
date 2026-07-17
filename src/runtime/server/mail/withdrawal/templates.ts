@@ -1,6 +1,6 @@
-import { renderFormEmail, type FormEmailField } from '../template/renderFormEmail';
 import { getWithdrawalStrings, type WithdrawalStrings } from './strings';
 import type { MailTemplate } from '../template/types';
+import { type FormEmailField, renderFormEmail } from '../template/renderFormEmail';
 
 export interface WithdrawalVars {
   name: string;

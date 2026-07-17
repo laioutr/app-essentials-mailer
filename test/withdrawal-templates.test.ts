@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import type { MailRenderContext } from '../src/runtime/server/mail/template/types';
 import {
   renderWithdrawalAck,
   renderWithdrawalStoreNotice,
   type WithdrawalVars,
 } from '../src/runtime/server/mail/withdrawal/templates';
-import type { MailRenderContext } from '../src/runtime/server/mail/template/types';
 
 const ctx = (locale: string): MailRenderContext => ({ locale, shopName: 'Example Shop' });
 

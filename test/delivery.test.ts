@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { sendMail } from '../src/runtime/server/mail/delivery';
 import type { MailMessage, MailTransport, SendResult } from '../src/runtime/server/mail/transport/types';
+import { sendMail } from '../src/runtime/server/mail/delivery';
 
 const message: MailMessage = {
   from: 'Shop <noreply@example.com>',

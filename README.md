@@ -90,26 +90,24 @@ import {
   sendMail,
   resolveTransport,
   renderFormEmail,
-  getShell,
   createSmtpTransport,
 } from '@laioutr/app-essentials-mailer/server'
 ```
 
-- `sendMail(config, message)` — resolve the transport from config and send one message.
+- `sendMail(transport, message, options?)` — send one fully-addressed message with retry + per-attempt timeout policy (`{ retries?, timeout? }`).
 - `resolveTransport(config)` / `createSmtpTransport(smtp)` — the transport seam.
-- `renderFormEmail(opts)` — fill a compiled shell with per-request data → `{ html, text }`.
-- `getShell(key)` — look up a compiled template shell by key (e.g. `'form-email'`).
+- `renderFormEmail(opts)` — fill the compiled form-email layout with per-request data → `{ html, text }`.
 
 ## How emails are authored
 
 Templates live in `emails/*.vue` and are authored with **[Maizzle](https://maizzle.com)**
 (Vue-SFC email framework: Outlook-safe HTML + CSS inlining). They are **precompiled at
-build time** (`pnpm build:emails`) into HTML "shells" under
+build time** (`pnpm build:emails`) into HTML **layouts** under
 `src/runtime/emails/compiled/` — Maizzle is a **devDependency and never ships in a
 consumer's runtime bundle**.
 
 Dynamic values are **not** evaluated by Vue. Each token is wrapped in `v-pre` so it
-survives compilation literally, and at runtime the shell is filled with
+survives compilation literally, and at runtime the layout is filled with
 **[Handlebars](https://handlebarsjs.com)** — a small runtime template engine. This means
 templates express real **runtime** logic (`{{#each}}` loops, `{{#if}}` conditionals), not
 just fixed placeholders, while keeping the heavy authoring pipeline out of production.
@@ -123,7 +121,7 @@ The mailer is built to become the shared email backbone for the essentials-apps
 family. Multi-app template contribution is **not implemented in v1**, but the seams exist:
 
 - **Exportable Maizzle config** (`maizzle.config.mjs`) — the single styling/pipeline source.
-- **Key-addressed renderer** (`getShell(key)` + `renderFormEmail`) — templates are looked up by key.
+- **Typed layout renderers** — each compiled layout has its own typed renderer (`renderFormEmail` for the `form-email` layout); a new layout adds a new renderer, and new messages add new templates over it.
 - **Runtime template engine** (Handlebars) — contributed templates can use runtime `{{#each}}`/`{{#if}}`, not only fixed placeholders.
 - **Configurable compile globs** (`scripts/build-emails.mjs` `templateDirs` list) — v1 lists only this app's `emails/`.
 - **Shared server API** (`@laioutr/app-essentials-mailer/server`) — `sendMail`, `resolveTransport`, `renderFormEmail`.
@@ -147,7 +145,7 @@ pnpm test          # build:emails + vitest
 pnpm lint
 ```
 
-`pnpm build:emails` regenerates the compiled shells from `emails/*.vue` — rerun it after
+`pnpm build:emails` regenerates the compiled layouts from `emails/*.vue` — rerun it after
 editing a template.
 
 ## License

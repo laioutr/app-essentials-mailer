@@ -1,8 +1,8 @@
 import Handlebars from 'handlebars';
 import { convert } from 'html-to-text';
+import type { MailRenderContext } from './types';
 import { formEmailLayout } from '../../../emails/compiled/form-email';
 import { resolveEmailLocale } from '../i18n';
-import type { MailRenderContext } from './types';
 
 export interface FormEmailField {
   label: string;

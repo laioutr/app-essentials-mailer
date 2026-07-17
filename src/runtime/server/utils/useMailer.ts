@@ -1,9 +1,9 @@
 import { useRuntimeConfig } from '#imports';
+import type { MailRenderContext } from '../mail/template/types';
+import type { MailerConfig, MailMessage, SendResult } from '../mail/transport/types';
 import { name } from '../../../../package.json';
 import { sendMail, type SendOptions } from '../mail/delivery';
 import { resolveTransport } from '../mail/transport/resolveTransport';
-import type { MailRenderContext } from '../mail/template/types';
-import type { MailerConfig, MailMessage, SendResult } from '../mail/transport/types';
 
 /** Reads the private mailer config and returns a transport-bound sender, the render context,
  *  and the config (for addressing). No `event`: `useRuntimeConfig()` returns the module-init
