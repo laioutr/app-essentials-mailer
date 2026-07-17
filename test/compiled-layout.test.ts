@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { formEmailShell } from '../src/runtime/emails/compiled/form-email';
+import { formEmailLayout } from '../src/runtime/emails/compiled/form-email';
 
-describe('compiled form-email shell', () => {
+describe('compiled form-email layout', () => {
   it('preserves every runtime scalar placeholder', () => {
     for (const token of [
       '{{heading}}',
@@ -14,13 +14,13 @@ describe('compiled form-email shell', () => {
       '{{textDirection}}',
       '{{timeZone}}',
     ]) {
-      expect(formEmailShell).toContain(token);
+      expect(formEmailLayout).toContain(token);
     }
   });
 
   it('preserves the Handlebars fields loop (runtime {{#each}}, not a build-time Vue v-for)', () => {
     for (const token of ['{{#each fields}}', '{{label}}', '{{value}}', '{{/each}}']) {
-      expect(formEmailShell).toContain(token);
+      expect(formEmailLayout).toContain(token);
     }
   });
 
@@ -35,23 +35,19 @@ describe('compiled form-email shell', () => {
       '{{#unless @last}}',
       '{{year}}',
     ]) {
-      expect(formEmailShell).toContain(token);
+      expect(formEmailLayout).toContain(token);
     }
   });
 
   it('preserves runtime language and direction metadata in every Maizzle wrapper', () => {
-    expect(formEmailShell).toContain(
-      '<html lang="{{htmlLang}}" dir="{{textDirection}}"',
-    );
-    expect(formEmailShell).toContain(
-      '<body xml:lang="{{htmlLang}}" dir="{{textDirection}}"',
-    );
-    expect(formEmailShell).toContain(
+    expect(formEmailLayout).toContain('<html lang="{{htmlLang}}" dir="{{textDirection}}"');
+    expect(formEmailLayout).toContain('<body xml:lang="{{htmlLang}}" dir="{{textDirection}}"');
+    expect(formEmailLayout).toContain(
       'role="article" aria-roledescription="email" lang="{{htmlLang}}" dir="{{textDirection}}"',
     );
   });
 
   it('has inlined styles (Maizzle CSS inlining ran)', () => {
-    expect(formEmailShell).toMatch(/style="/);
+    expect(formEmailLayout).toMatch(/style="/);
   });
 });

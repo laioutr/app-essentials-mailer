@@ -5,10 +5,9 @@
 export { createSmtpTransport } from './transport/smtp';
 export { resolveTransport } from './transport/resolveTransport';
 export { renderFormEmail } from './template/renderFormEmail';
-export { getShell } from './template/shells';
 export { sendMail } from './delivery';
 
 export type { MailTransport, MailMessage, SendResult, MailerConfig, SmtpTransportConfig } from './transport/types';
 export type { SendOptions } from './delivery';
 export type { FormEmailField, RenderFormEmailOptions, RenderedEmail } from './template/renderFormEmail';
-export type { ShellKey } from './template/shells';
+export type { MailRenderContext, FormEmailLink } from './template/types';

@@ -3,7 +3,6 @@ import { WithdrawalAction } from '@laioutr-core/canonical-types/ecommerce';
 import type { MailerConfig } from '../../mail/transport/types';
 import { name } from '../../../../../package.json';
 import { renderFormEmail } from '../../mail/template/renderFormEmail';
-import { getShell } from '../../mail/template/shells';
 import { resolveTransport } from '../../mail/transport/resolveTransport';
 import { handleWithdrawal } from '../../mail/withdrawal/handleWithdrawal';
 import { defineEssentialsMailerAction } from '../../middleware';
@@ -15,13 +14,14 @@ import { defineEssentialsMailerAction } from '../../middleware';
  */
 export default defineEssentialsMailerAction(WithdrawalAction, async ({ input, clientEnv, event }) => {
   const config = useRuntimeConfig(event)[name] as MailerConfig;
-  const shell = getShell('form-email');
   return handleWithdrawal({
     input,
     locale: clientEnv.locale,
     config,
     transport: resolveTransport(config),
-    renderEmail: (o) => renderFormEmail({ shell, ...o }),
+    // Temporary bridge — this whole file is replaced in Task 6.
+    renderEmail: ({ locale, timeZone, shopName, shopUrl, footerLinks, ...rest }) =>
+      renderFormEmail({ ctx: { locale, timeZone, shopName, shopUrl, footerLinks }, ...rest }),
     now: () => new Date(),
   });
 });

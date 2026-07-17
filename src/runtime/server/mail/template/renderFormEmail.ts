@@ -1,38 +1,22 @@
 import Handlebars from 'handlebars';
 import { convert } from 'html-to-text';
+import { formEmailLayout } from '../../../emails/compiled/form-email';
 import { resolveEmailLocale } from '../i18n';
+import type { MailRenderContext } from './types';
 
 export interface FormEmailField {
   label: string;
   value: string;
 }
 
-export interface FormEmailLink {
-  label: string;
-  url: string;
-}
-
 export interface RenderFormEmailOptions {
-  /**
-   * Compiled Maizzle shell: a Handlebars template with {{scalar}} tokens and a
-   * {{#each fields}} row loop. Authored in `emails/*.vue`, built by `build:emails`.
-   */
-  shell: string;
+  /** Config/request-derived context (locale, timezone, brand). The layout is owned here. */
+  ctx: MailRenderContext;
   heading: string;
   intro: string;
   formType: string;
   fields: FormEmailField[];
   submittedAt: Date;
-  /** BCP-47 locale used for supported-language selection and regional date formatting. */
-  locale: string;
-  /** IANA timezone for displayed dates; omitted or invalid values use UTC. */
-  timeZone?: string;
-  /** Shop display name shown in the header + copyright line. */
-  shopName: string;
-  /** Storefront URL the header shop name links to; plain text when omitted. */
-  shopUrl?: string;
-  /** Footer links (imprint, privacy, …); footer link row is omitted when empty. */
-  footerLinks?: FormEmailLink[];
 }
 
 export interface RenderedEmail {
@@ -40,37 +24,25 @@ export interface RenderedEmail {
   text: string;
 }
 
-/** Row-label chrome the template itself owns, by language. */
+/** Row-label chrome the layout itself owns, by language. */
 const CHROME = {
   de: { formType: 'Formulartyp', submittedAt: 'Eingegangen am' },
   en: { formType: 'Form type', submittedAt: 'Received at' },
 } as const;
 
-/**
- * Compiled-template cache keyed by shell string. Shells are static module constants,
- * so each is parsed by Handlebars once and reused across every request.
- */
-const compiled = new Map<string, ReturnType<typeof Handlebars.compile>>();
-
-function compileShell(shell: string): ReturnType<typeof Handlebars.compile> {
-  let template = compiled.get(shell);
-  if (!template) {
-    template = Handlebars.compile(shell);
-    compiled.set(shell, template);
-  }
-  return template;
-}
+/** Compiled once — the layout is a static module constant (Handlebars compiles lazily on import). */
+const template = Handlebars.compile(formEmailLayout);
 
 /**
- * Pure: fills a precompiled Maizzle shell with per-request data via Handlebars.
- * Handlebars is a small runtime template engine (no email framework at runtime); its
- * default `{{ }}` escaping HTML-escapes every interpolated value, so callers pass raw
- * strings and untrusted user input can never inject markup.
+ * Pure: fills the precompiled Maizzle form-email layout with per-request data via Handlebars.
+ * Handlebars is a small runtime template engine; its default `{{ }}` escaping HTML-escapes every
+ * interpolated value, so callers pass raw strings and untrusted user input can never inject markup.
  */
 export function renderFormEmail(opts: RenderFormEmailOptions): RenderedEmail {
+  const { ctx } = opts;
   const { contentLanguage, direction, formatLocale, timeZone } = resolveEmailLocale(
-    opts.locale,
-    opts.timeZone,
+    ctx.locale,
+    ctx.timeZone,
   );
   const chrome = CHROME[contentLanguage];
   const submittedAt = new Intl.DateTimeFormat(formatLocale, {
@@ -78,12 +50,9 @@ export function renderFormEmail(opts: RenderFormEmailOptions): RenderedEmail {
     timeStyle: 'medium',
     timeZone,
   }).format(opts.submittedAt);
-  const year = new Intl.DateTimeFormat('en', {
-    year: 'numeric',
-    timeZone,
-  }).format(opts.submittedAt);
+  const year = new Intl.DateTimeFormat('en', { year: 'numeric', timeZone }).format(opts.submittedAt);
 
-  const html = compileShell(opts.shell)({
+  const html = template({
     heading: opts.heading,
     intro: opts.intro,
     formType: opts.formType,
@@ -94,9 +63,9 @@ export function renderFormEmail(opts: RenderFormEmailOptions): RenderedEmail {
     htmlLang: contentLanguage,
     textDirection: direction,
     timeZone,
-    shopName: opts.shopName,
-    shopUrl: opts.shopUrl,
-    footerLinks: opts.footerLinks,
+    shopName: ctx.shopName,
+    shopUrl: ctx.shopUrl,
+    footerLinks: ctx.footerLinks,
     year,
   });
 
