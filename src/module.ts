@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-empty-object-type */
-import { createResolver, defineNuxtModule, installModule } from '@nuxt/kit';
+import { addServerImportsDir, createResolver, defineNuxtModule, installModule } from '@nuxt/kit';
 import { defu } from 'defu';
 import { registerLaioutrApp } from '@laioutr-core/kit';
 import type { MailerConfig, ModuleOptions } from './config-types';
@@ -20,6 +20,8 @@ export default defineNuxtModule<ModuleOptions>({
     const resolveRuntimeModule = (path: string) => resolve('./runtime', path);
 
     nuxt.options.build.transpile.push(resolve('./runtime'));
+
+    addServerImportsDir(resolveRuntimeModule('server/utils'));
 
     // PRIVATE-only. No validation (by design). Never copied to runtimeConfig.public.
     nuxt.options.runtimeConfig[name] = defu(nuxt.options.runtimeConfig[name] as Parameters<typeof defu>[0], options);
