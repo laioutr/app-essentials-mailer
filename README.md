@@ -44,7 +44,7 @@ export default defineNuxtConfig({
         auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
       },
       from: 'Shop <noreply@example.com>', // sender; may be "Display Name <addr>"
-      recipient: 'widerruf@example.com', // trader address that receives withdrawal notices
+      recipient: 'legal@example.com', // default address that receives store notices
       replyToConsumer: true, // store-notice reply-to = the consumer's email (default true)
       timeZone: 'Europe/Berlin', // optional IANA zone; omitted/invalid values use UTC
       brand: {
@@ -56,6 +56,13 @@ export default defineNuxtConfig({
           { label: 'Privacy', url: 'https://example.com/privacy' },
         ],
       },
+      actions: {
+        // Per-action overrides; every key falls back to the global default above.
+        withdrawal: {
+          recipient: 'widerruf@example.com', // this action's notices go elsewhere
+          consumerAck: true, // false disables the consumer acknowledgement — see the note below
+        },
+      },
     },
   },
 })
@@ -64,18 +71,32 @@ export default defineNuxtConfig({
 | Key                | Type                         | Notes                                                                        |
 | ------------------ | ---------------------------- | ---------------------------------------------------------------------------- |
 | `transport`        | `{ type: 'smtp', … }`        | SMTP connection settings (`host`, `port`, `secure?`, `auth`).                |
-| `from`             | `string`                     | Sender address; `"Display Name <addr>"` accepted.                            |
-| `recipient`        | `string`                     | Trader address that receives withdrawal notices.                             |
+| `from`             | `string`                     | Default sender address; `"Display Name <addr>"` accepted.                    |
+| `recipient`        | `string`                     | Default address that receives store notices; an action may override it.      |
 | `replyToConsumer`  | `boolean` (default `true`)   | When not `false`, the store-notice `reply-to` is the consumer's email.       |
 | `timeZone`         | `string` (optional)          | IANA timezone for timestamps and copyright year; omitted/invalid values use `UTC`. |
 | `brand`            | `{ shopName, shopUrl?, footerLinks? }` | Shop branding for every email's header + footer (**required**).    |
 | `brand.shopName`   | `string`                     | Shop display name — header and `© {year} {shopName}` footer line.            |
 | `brand.shopUrl`    | `string` (optional)          | Storefront URL the header shop name links to; plain text when omitted.       |
 | `brand.footerLinks`| `{ label, url }[]` (optional)| Footer links (imprint, privacy, …), rendered in order; omitted when empty.   |
+| `actions`          | `{ withdrawal?: … }` (optional) | Per-action overrides of the addressing defaults above.                    |
+| `actions.withdrawal.recipient` | `string` (optional) | Overrides `recipient` for withdrawal notices.                    |
+| `actions.withdrawal.from`      | `string` (optional) | Overrides `from` for both withdrawal emails.                     |
+| `actions.withdrawal.replyToConsumer` | `boolean` (optional) | Overrides `replyToConsumer` for the withdrawal store notice. |
+| `actions.withdrawal.consumerAck` | `boolean` (default `true`) | When not `false`, the consumer receives the acknowledgement.  |
 
 `timeZone` affects the local calendar date/time shown in every email and the copyright year
 at New Year boundaries. The footer displays the effective canonical IANA identifier so the
 timestamp remains unambiguous. Omitted or invalid identifiers fall back to `UTC`.
+
+Every key under `actions.<action>` overrides the matching top-level default for that action only;
+anything omitted falls back. So a single trader inbox stays a single top-level `recipient`, and an
+action that needs its own inbox names it in its own block.
+
+> **Legal note on `consumerAck`.** Under § 356 Abs. 1 BGB a trader must confirm receipt of a
+> withdrawal submitted through an online form on a durable medium without undue delay. The
+> acknowledgement is sent by default; setting `consumerAck: false` is a deliberate operator
+> decision with legal consequences, not a formatting preference.
 
 There is **no config validation** by design — a misconfiguration surfaces as a failed
 send at request time, not at boot.
