@@ -1,6 +1,22 @@
 # Changelog
 
 
+## v0.1.3
+
+[compare changes](https://github.com/laioutr/app-essentials-mailer/compare/v0.1.2...v0.1.3)
+
+### 🚀 Enhancements
+
+- Configure mailer addressing and the withdrawal ack per action ([59959f1](https://github.com/laioutr/app-essentials-mailer/commit/59959f1))
+
+### 🤖 CI
+
+- Pin pnpm via packageManager and align the workflow with app-essentials-seo ([0a85808](https://github.com/laioutr/app-essentials-mailer/commit/0a85808))
+
+### ❤️ Contributors
+
+- Sebastian Langer <sebastian.langer@laioutr.com>
+
 ## v0.1.2
 
 [compare changes](https://github.com/laioutr/app-essentials-mailer/compare/v0.1.1...v0.1.2)
