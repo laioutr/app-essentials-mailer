@@ -104,17 +104,33 @@ send at request time, not at boot.
 ## Delivery through Laioutr Channels
 
 In a Laioutr project (`laioutr.projectSlug` and `laioutr.projectSecretKey` set, as on every deployed storefront) the
-withdrawal goes through the project's **Email channel** in the Cockpit (Project → Channels → Email). The Cockpit sends
-the store notice to the recipients set there and the consumer's acknowledgement, from Laioutr's address for the project
-or the project's own mailbox, logs both in the delivery log and counts them against the project's monthly quota. It is
-the same for every commerce backend — Shopify, Shopware, Adobe Commerce — because no connector handles the withdrawal;
-this app does.
+withdrawal goes through the project's **Email channel** (Project → Channels → Email in the Cockpit). The storefront
+posts it to the Laioutr Channels service (`https://api.laioutr.cloud/channels/v1/submissions`), which proves the
+project by its slug and secret, stores the submission and answers "received". The Cockpit then sends the store notice
+to the recipients set there and the consumer's acknowledgement, from Laioutr's address for the project or the
+project's own mailbox, logs both in the delivery log and counts them against the project's monthly quota — usually
+within seconds, at the latest within the minute. It is the same for every commerce backend — Shopify, Shopware, Adobe
+Commerce — because no connector handles the withdrawal; this app does.
 
-| Cockpit answer | What the visitor gets | Own `transport` used? |
+| Channels service answer | What the visitor gets | Own `transport` used? |
 | --- | --- | --- |
-| Sent | success | no |
-| The project's monthly quota reached, too many submissions, a bot refused | the Cockpit's message, in the visitor's language | **no** — a quota stays a quota |
-| The channel is not set up, the project is unknown, the Cockpit fails or cannot be reached (10 s) | as the own `transport` answers | yes, where configured |
+| Received (`202`) | success | no |
+| Malformed (`400`), refused (`403`), too many submissions (`429`) | the withdrawal's "could not be submitted" message, in the visitor's language | **no** — the answer is final |
+| Project unknown or secret wrong (`401`) | as the own `transport` answers | yes, where configured |
+| The service fails (`5xx`), cannot be reached or does not answer within 10 s | as the own `transport` answers | yes, where configured |
+
+A `401` is not final: the service answers it too while it has not yet learnt a storefront's current identity (an
+environment that got the Mailer by a copy, an organization renamed before the storefront is rebuilt). A withdrawal is
+legally required, so it is never lost to that: the own `transport` sends it, and without one the visitor reads "could
+not be submitted".
+
+The visitor reads "received" before the Cockpit has sent anything: what happens at the project's monthly quota (the
+notice held or skipped, the Owners told) is decided by the Cockpit afterwards and is no longer said on the page.
+
+Each submission carries a `clientKey`: the hex SHA-256 of the visitor's address as the request gives it (the first
+`X-Forwarded-For` entry, else the connection's), so the service can limit one sender's submissions without a flood
+filling the environment's room for real withdrawals. The address itself never leaves the storefront; where the
+request gives none, no key is sent.
 
 So `transport`, `from` and `recipient` are optional: without them a storefront sends through Channels only, and with
 them they are the fallback. `channels: { enabled: false }` sends through the own `transport` alone, as before.
@@ -125,7 +141,8 @@ so they reach the team only and are not counted.
 | Key | Type | Notes |
 | --- | --- | --- |
 | `channels.enabled` | `boolean` (default `true`) | `false` never asks the Cockpit. |
-| `channels.url` | `string` (optional) | The submissions endpoint; defaults to `https://cockpit.laioutr.cloud/api/channel-email/submissions`. Overridden at runtime by `NUXT_LAIOUTR_MAILER_CHANNELS_URL`. |
+| `channels.url` | `string` (optional) | The submissions endpoint; defaults to `https://api.laioutr.cloud/channels/v1/submissions`. Overridden at runtime by `NUXT_LAIOUTR_MAILER_CHANNELS_URL`. |
+| `channels.clientAddress` | `'auto' \| 'cloudflare' \| 'forwarded' \| 'none'` (default `auto`) | Where the visitor's address is read for the per-sender limit (only its hash is sent). `auto`: `x-forwarded-for` on Vercel, `cf-connecting-ip` where the request came through Cloudflare, otherwise no key. Name a header only a proxy in front of the storefront overwrites. |
 
 ## Server API
 

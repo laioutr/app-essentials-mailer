@@ -4,13 +4,15 @@ import {
   channelsLocaleOf,
   type ChannelsTarget,
   channelsTargetOf,
+  clientKeyOf,
   DEFAULT_CHANNELS_URL,
   submitToChannels,
+  visitorAddressOf,
 } from '../src/runtime/server/mail/channels';
 
 const project = { projectSlug: 'acme/shop', projectSecretKey: 'secret' };
 const target: ChannelsTarget = {
-  url: 'https://cockpit.example.test/api/channel-email/submissions',
+  url: 'https://api.example.test/channels/v1/submissions',
   identity: { projectSlug: 'acme/shop', projectSecret: 'secret', environmentName: 'main' },
 };
 const withdrawal = {
@@ -57,34 +59,45 @@ describe('channelsBodyOf', () => {
     });
     expect(channelsLocaleOf('fr')).toBe('en');
   });
+
+  it('carries the client key where one is known', () => {
+    expect(channelsBodyOf(target, { ...withdrawal, clientKey: 'abc' })).toMatchObject({ clientKey: 'abc' });
+  });
+});
+
+describe('clientKeyOf', () => {
+  it('is the hex SHA-256 of the address, never the address', () => {
+    expect(clientKeyOf('203.0.113.7')).toBe('fec52565aa0cf18f57d7cf5b3ac728503b8992d2d6f7d46da1d1201090902b02');
+    expect(clientKeyOf('203.0.113.7')).not.toBe(clientKeyOf('203.0.113.8'));
+  });
+
+  it('is absent where no address is known', () => {
+    expect(clientKeyOf(undefined)).toBeUndefined();
+    expect(clientKeyOf(' ')).toBeUndefined();
+  });
 });
 
 describe('submitToChannels', () => {
-  it('is sent when the Cockpit took it', async () => {
-    const fetchFn = answering(200, { success: true });
-    await expect(submitToChannels(target, withdrawal, fetchFn)).resolves.toEqual({ kind: 'sent' });
+  it('posts to the Channels service by default', () => {
+    expect(DEFAULT_CHANNELS_URL).toBe('https://api.laioutr.cloud/channels/v1/submissions');
+  });
+
+  it('is received when the service stored it', async () => {
+    const fetchFn = answering(202, { received: true });
+    await expect(submitToChannels(target, withdrawal, fetchFn)).resolves.toEqual({ kind: 'received' });
     expect(fetchFn).toHaveBeenCalledWith(target.url, expect.objectContaining({ method: 'POST', redirect: 'error' }));
   });
 
-  it('passes the quota on to the visitor and never falls back to own mail', async () => {
-    const outcome = await submitToChannels(
-      target,
-      withdrawal,
-      answering(429, { success: false, code: 'limitReached', message: 'Bitte kontaktieren Sie den Shop.' }),
-    );
-    expect(outcome).toEqual({ kind: 'refused', message: 'Bitte kontaktieren Sie den Shop.', limitReached: true });
+  it.each([400, 403, 429])('takes a %i as final and never falls back to own mail', async (status) => {
+    const outcome = await submitToChannels(target, withdrawal, answering(status, { error: 'refused' }));
+    expect(outcome).toEqual({ kind: 'refused', status });
   });
 
-  it('passes on a bot or flood refusal as final', async () => {
-    const outcome = await submitToChannels(target, withdrawal, answering(403, { success: false, message: 'No.' }));
-    expect(outcome).toEqual({ kind: 'refused', message: 'No.', limitReached: false });
-  });
-
-  it('leaves it to own mail where the channel is not set up, the project unknown, or the Cockpit fails', async () => {
+  it('leaves it to own mail where the service does not know the storefront or fails', async () => {
     for (const [status, body] of [
-      [503, { success: false, code: 'channelNotSetUp' }],
-      [401, { success: false, message: 'x' }],
-      [500, { success: false, message: 'x' }],
+      [401, { error: 'unauthorized' }],
+      [500, { error: 'internal server error' }],
+      [503, { error: 'unavailable' }],
       [502, undefined],
     ] as const) {
       const outcome = await submitToChannels(target, withdrawal, answering(status, body));
@@ -92,13 +105,37 @@ describe('submitToChannels', () => {
     }
   });
 
-  it('leaves it to own mail when the Cockpit cannot be reached', async () => {
-    const fetchFn = vi.fn(async () => {
+  it('leaves it to own mail when the service cannot be reached or does not answer in time', async () => {
+    const unreachable = vi.fn(async () => {
       throw new TypeError('fetch failed');
     });
-    await expect(submitToChannels(target, withdrawal, fetchFn)).resolves.toEqual({
+    await expect(submitToChannels(target, withdrawal, unreachable)).resolves.toEqual({
       kind: 'unavailable',
       reason: 'fetch failed',
     });
+    const timedOut = vi.fn(async () => {
+      throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+    });
+    await expect(submitToChannels(target, withdrawal, timedOut)).resolves.toMatchObject({ kind: 'unavailable' });
+  });
+});
+
+describe('visitorAddressOf', () => {
+  const headers = (values: Record<string, string>) => (name: string) => values[name];
+  const spoofed = { 'x-forwarded-for': '198.51.100.9, 203.0.113.7', 'cf-connecting-ip': '198.51.100.9' };
+
+  it('trusts Cloudflare’s header only where the request came through Cloudflare', () => {
+    expect(visitorAddressOf(headers({ ...spoofed, 'cf-ray': '8f0a-FRA', 'cf-connecting-ip': '203.0.113.7' }))).toBe('203.0.113.7');
+    expect(visitorAddressOf(headers(spoofed))).toBeUndefined();
+  });
+
+  it('reads the forwarded address on Vercel, which overwrites it', () => {
+    expect(visitorAddressOf(headers({ 'x-forwarded-for': '203.0.113.7' }), 'auto', true)).toBe('203.0.113.7');
+  });
+
+  it('follows the configured source', () => {
+    expect(visitorAddressOf(headers(spoofed), 'forwarded')).toBe('198.51.100.9');
+    expect(visitorAddressOf(headers({ 'cf-connecting-ip': '203.0.113.7' }), 'cloudflare')).toBe('203.0.113.7');
+    expect(visitorAddressOf(headers({ 'cf-ray': 'x', 'cf-connecting-ip': '203.0.113.7' }), 'none')).toBeUndefined();
   });
 });

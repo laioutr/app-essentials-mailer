@@ -1,6 +1,6 @@
-import { useMailer } from '#imports';
+import { getRequestHeader, useMailer } from '#imports';
 import { WithdrawalAction } from '@laioutr-core/canonical-types/ecommerce';
-import { submitToChannels } from '../../mail/channels';
+import { clientKeyOf, submitToChannels, visitorAddressOf } from '../../mail/channels';
 import { resolveWithdrawalSettings } from '../../mail/withdrawal/settings';
 import { getWithdrawalStrings } from '../../mail/withdrawal/strings';
 import { renderWithdrawalAck, renderWithdrawalStoreNotice } from '../../mail/withdrawal/templates';
@@ -12,10 +12,11 @@ const WITHDRAWAL_FORM = { id: 'withdrawal', name: 'Withdrawal' };
 /**
  * Registers the WithdrawalAction handler (auto-discovered via the module's orchestrDirs).
  *
- * In a Laioutr project the withdrawal goes through the project's Email channel: the Cockpit sends the store notice and
- * the consumer's acknowledgement, logs both and counts them against the project's quota, and its answer — a quota
- * reached included — is the visitor's. The storefront's own mail (`transport`) sends only where the Cockpit cannot take
- * it: Channels off, the channel not set up, the Cockpit unreachable.
+ * In a Laioutr project the withdrawal goes through the project's Email channel: the Channels service stores it and
+ * answers "received", then the Cockpit sends the store notice and the consumer's acknowledgement, logs both and counts
+ * them against the project's quota. A refusal of the service (malformed, refused, too many) is final. The storefront's
+ * own mail (`transport`) sends only where the service cannot take it: Channels off, the storefront unknown to the
+ * service, the service failing or unreachable.
  *
  * Through the storefront's own mail, addressing and toggles come from `resolveWithdrawalSettings` — global config
  * defaults with `actions.withdrawal` overrides applied. Sends up to two emails on the reusable mail layer:
@@ -24,7 +25,7 @@ const WITHDRAWAL_FORM = { id: 'withdrawal', name: 'Withdrawal' };
  *      request path, retried; a failure is logged but does not fail the withdrawal (the store
  *      notice already delivered it).
  */
-export default defineEssentialsMailerAction(WithdrawalAction, async ({ input, clientEnv }) => {
+export default defineEssentialsMailerAction(WithdrawalAction, async ({ input, clientEnv, event }) => {
   const locale = clientEnv.locale;
   const { channels, sendMail, ctx, config } = useMailer(locale);
   const failed = { success: false, message: getWithdrawalStrings(locale).errors.deliveryFailed };
@@ -36,9 +37,15 @@ export default defineEssentialsMailerAction(WithdrawalAction, async ({ input, cl
       fields: { name: input.name, orderReference: input.orderReference },
       visitorEmail: input.email,
       locale,
+      clientKey: clientKeyOf(
+        visitorAddressOf((name) => getRequestHeader(event, name), config.channels?.clientAddress, process.env.VERCEL === '1'),
+      ),
     });
-    if (outcome.kind === 'sent') return { success: true };
-    if (outcome.kind === 'refused') return { success: false, message: outcome.message };
+    if (outcome.kind === 'received') return { success: true };
+    if (outcome.kind === 'refused') {
+      console.warn(`[essentials-mailer] the Email channel refused a withdrawal (${outcome.status})`);
+      return failed;
+    }
     console.warn(`[essentials-mailer] the Email channel could not take a withdrawal (${outcome.reason}); using own mail`);
   }
 
