@@ -1,8 +1,8 @@
 import { createSmtpTransport } from './smtp';
-import type { MailerConfig, MailTransport } from './types';
+import type { MailTransport, TransportConfig } from './types';
 
 /** Returns the transport adapter for the configured transport.type (only 'smtp' in v1). */
-export function resolveTransport(config: MailerConfig): MailTransport {
+export function resolveTransport(config: { transport: TransportConfig }): MailTransport {
   switch (config.transport.type) {
     case 'smtp':
       return createSmtpTransport(config.transport);

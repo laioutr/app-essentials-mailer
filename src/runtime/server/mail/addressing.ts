@@ -2,8 +2,9 @@ import type { MailAddressingConfig, MailerConfig } from '../../../config-types';
 
 /** Addressing with the action's overrides applied and every optional resolved. */
 export interface ResolvedAddressing {
-  from: string;
-  recipient: string;
+  /** Unset where the storefront sends through Channels only. */
+  from?: string;
+  recipient?: string;
   replyToConsumer: boolean;
 }
 

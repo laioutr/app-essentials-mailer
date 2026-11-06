@@ -49,19 +49,35 @@ export interface MailerActionsConfig {
   withdrawal?: WithdrawalActionConfig;
 }
 
+/**
+ * Delivery through the project's Email channel in the Laioutr Cockpit, on by default for a Laioutr project: the Cockpit
+ * chooses the sender and the recipients, logs every email and counts it against the project's quota. The `transport`
+ * and its addresses are then only the fallback for a Cockpit that cannot take the submission.
+ */
+export interface ChannelsConfig {
+  /** `false` sends through `transport` only. */
+  enabled?: boolean;
+  /** The Cockpit's submissions endpoint; defaults to Laioutr's. */
+  url?: string;
+}
+
 /** The private config stored in runtimeConfig[name]. Not validated (by design). */
 export interface MailerConfig {
-  transport: TransportConfig;
+  /** The storefront's own mail: the only way where Channels is off, the fallback where it is on. */
+  transport?: TransportConfig;
   /** Default sender address; may be "Display Name <addr>" form. An action block may override it. */
-  from: string;
+  from?: string;
   /** Default address that receives store notices. An action block may override it. */
-  recipient: string;
+  recipient?: string;
   /** When not false (default true), the store-notice reply-to is the consumer's email. */
   replyToConsumer?: boolean;
   /** IANA timezone for displayed dates; omitted or invalid values use UTC. */
   timeZone?: string;
   /** Shop branding shown in every email's header and footer. */
   brand: MailerBrandConfig;
+  channels?: ChannelsConfig;
+  /** Set by the module from the project's laioutrrc; not configured by hand. */
+  environmentName?: string;
   /** Per-action overrides. Everything inside is optional; omitting it keeps the global defaults. */
   actions?: MailerActionsConfig;
 }
