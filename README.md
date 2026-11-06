@@ -70,7 +70,7 @@ export default defineNuxtConfig({
 
 | Key                | Type                         | Notes                                                                        |
 | ------------------ | ---------------------------- | ---------------------------------------------------------------------------- |
-| `transport`        | `{ type: 'smtp', … }`        | SMTP connection settings (`host`, `port`, `secure?`, `auth`).                |
+| `transport`        | `{ type: 'smtp', … }` (optional) | SMTP connection settings (`host`, `port`, `secure?`, `auth`); see Channels below. |
 | `from`             | `string`                     | Default sender address; `"Display Name <addr>"` accepted.                    |
 | `recipient`        | `string`                     | Default address that receives store notices; an action may override it.      |
 | `replyToConsumer`  | `boolean` (default `true`)   | When not `false`, the store-notice `reply-to` is the consumer's email.       |
@@ -100,6 +100,32 @@ action that needs its own inbox names it in its own block.
 
 There is **no config validation** by design — a misconfiguration surfaces as a failed
 send at request time, not at boot.
+
+## Delivery through Laioutr Channels
+
+In a Laioutr project (`laioutr.projectSlug` and `laioutr.projectSecretKey` set, as on every deployed storefront) the
+withdrawal goes through the project's **Email channel** in the Cockpit (Project → Channels → Email). The Cockpit sends
+the store notice to the recipients set there and the consumer's acknowledgement, from Laioutr's address for the project
+or the project's own mailbox, logs both in the delivery log and counts them against the project's monthly quota. It is
+the same for every commerce backend — Shopify, Shopware, Adobe Commerce — because no connector handles the withdrawal;
+this app does.
+
+| Cockpit answer | What the visitor gets | Own `transport` used? |
+| --- | --- | --- |
+| Sent | success | no |
+| The project's monthly quota reached, too many submissions, a bot refused | the Cockpit's message, in the visitor's language | **no** — a quota stays a quota |
+| The channel is not set up, the project is unknown, the Cockpit fails or cannot be reached (10 s) | as the own `transport` answers | yes, where configured |
+
+So `transport`, `from` and `recipient` are optional: without them a storefront sends through Channels only, and with
+them they are the fallback. `channels: { enabled: false }` sends through the own `transport` alone, as before.
+Through Channels, the recipients, the sender and whether the consumer is acknowledged are the Cockpit's settings;
+`actions.withdrawal.*` applies to the own `transport` only. A dev server (`nuxi dev`) marks its submissions as `local`,
+so they reach the team only and are not counted.
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `channels.enabled` | `boolean` (default `true`) | `false` never asks the Cockpit. |
+| `channels.url` | `string` (optional) | The submissions endpoint; defaults to `https://cockpit.laioutr.cloud/api/channel-email/submissions`. Overridden at runtime by `NUXT_LAIOUTR_MAILER_CHANNELS_URL`. |
 
 ## Server API
 

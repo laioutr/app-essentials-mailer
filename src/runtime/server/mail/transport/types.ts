@@ -1,6 +1,6 @@
 // Config types are re-exported type-only from the single source of truth (src/config-types.ts),
 // so runtime code carries no build-time coupling.
-export type { MailerConfig, SmtpTransportConfig } from '../../../../config-types';
+export type { MailerConfig, SmtpTransportConfig, TransportConfig } from '../../../../config-types';
 
 /** A fully-addressed email to send. `from` is explicit so the transport is a thin envelope. */
 export interface MailMessage {

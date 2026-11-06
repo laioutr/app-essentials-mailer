@@ -6,8 +6,10 @@ export { createSmtpTransport } from './transport/smtp';
 export { resolveTransport } from './transport/resolveTransport';
 export { renderFormEmail } from './template/renderFormEmail';
 export { sendMail } from './delivery';
+export { channelsTargetOf, submitToChannels } from './channels';
 
 export type { MailTransport, MailMessage, SendResult, MailerConfig, SmtpTransportConfig } from './transport/types';
 export type { SendOptions } from './delivery';
+export type { ChannelsOutcome, ChannelsSubmission, ChannelsTarget } from './channels';
 export type { FormEmailField, RenderFormEmailOptions, RenderedEmail } from './template/renderFormEmail';
 export type { MailRenderContext, FormEmailLink } from './template/types';
