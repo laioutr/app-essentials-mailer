@@ -1,6 +1,19 @@
 # Changelog
 
 
+## v0.1.4
+
+[compare changes](https://github.com/laioutr/app-essentials-mailer/compare/v0.1.3...v0.1.4)
+
+### 🚀 Enhancements
+
+- Deliver the withdrawal through the project's Email channel in the Cockpit ([c98f9ba](https://github.com/laioutr/app-essentials-mailer/commit/c98f9ba))
+- Send submissions to the Channels Worker; own SMTP when it cannot take them ([790a1ee](https://github.com/laioutr/app-essentials-mailer/commit/790a1ee))
+
+### ❤️ Contributors
+
+- Roman Tsehynka <roman.tsehynka@gmail.com>
+
 ## v0.1.3
 
 [compare changes](https://github.com/laioutr/app-essentials-mailer/compare/v0.1.2...v0.1.3)
