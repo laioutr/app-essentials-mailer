@@ -1,10 +1,14 @@
+import { createHash } from 'node:crypto';
+import type { ClientAddressSource } from '../../../config-types';
+
 /**
- * Delivery through the project's Email channel in the Laioutr Cockpit: the Cockpit sends the store notice and the
- * visitor's email from the project's address or its own mailbox, logs them and counts them against the project's
- * quota. No Nuxt imports, so it is tested on its own.
+ * Delivery through the project's Email channel in Laioutr: the submission is posted to the Channels service, which
+ * proves the storefront, stores it and answers "received"; the Cockpit then sends the store notice and the visitor's
+ * email from the project's address or its own mailbox, logs them and counts them against the project's quota. No Nuxt
+ * imports, so it is tested on its own.
  */
 
-/** Who the storefront is, as the Cockpit identifies it. Never leaves the server. */
+/** Who the storefront is, as the Channels service proves it. Never leaves the server. */
 export interface ChannelsIdentity {
   projectSlug: string;
   projectSecret: string;
@@ -18,7 +22,7 @@ export interface ChannelsTarget {
   environmentType?: 'local';
 }
 
-export const DEFAULT_CHANNELS_URL = 'https://cockpit.laioutr.cloud/api/channel-email/submissions';
+export const DEFAULT_CHANNELS_URL = 'https://api.laioutr.cloud/channels/v1/submissions';
 
 /**
  * Read at runtime as well as at build: the app's runtime-config key holds `@` and `/`, which no shell variable name can
@@ -28,7 +32,7 @@ export const CHANNELS_URL_ENV = 'NUXT_LAIOUTR_MAILER_CHANNELS_URL';
 
 export const DEFAULT_ENVIRONMENT_NAME = 'main';
 
-/** The Cockpit refuses a hung request's place to nobody: past this the storefront's own mail takes the submission. */
+/** The service only stores the submission; past this the storefront's own mail takes it. */
 const CHANNELS_TIMEOUT_MS = 10_000;
 
 /** The target, or null where the storefront is not a Laioutr project (a playground, no secret) or Channels is off. */
@@ -51,7 +55,7 @@ export function channelsTargetOf(config: {
   };
 }
 
-/** The Cockpit writes its emails in these locales; any other is answered in English. */
+/** The Cockpit writes its emails in these locales; any other is written in English. */
 export const channelsLocaleOf = (locale: string | undefined): 'de' | 'en' =>
   locale?.trim().toLowerCase().startsWith('de') ? 'de' : 'en';
 
@@ -61,22 +65,57 @@ export interface ChannelsSubmission {
   fields: Record<string, string>;
   visitorEmail?: string;
   locale: string;
+  /** The visitor's connection, as {@link clientKeyOf} hides it: the service limits submissions per key. */
+  clientKey?: string;
 }
 
 /**
- * How the Cockpit answered:
- * - `sent` — the team has it, and the visitor's email went where one goes;
- * - `refused` — a final answer the visitor reads (the project's monthly quota, too many submissions, a bot, a malformed
- *   one); the storefront's own mail never stands in for it, so a quota stays a quota;
- * - `unavailable` — the channel is not set up for this project, the Mailer is not installed in the Cockpit, or the
- *   Cockpit could not be reached or failed; nothing is known to have been sent, so the storefront's own mail takes it.
+ * The visitor's address from the header a trusted proxy sets, or undefined where none can be trusted — then the service
+ * applies no per-sender limit rather than one key for every visitor behind the same proxy.
+ * - `cloudflare`: Cloudflare overwrites `cf-connecting-ip` on every request it proxies.
+ * - `forwarded`: the first `x-forwarded-for` entry, for a proxy that overwrites the header (Vercel does).
+ * - `auto`: `forwarded` on Vercel, `cloudflare` where the request came through Cloudflare (`cf-ray`), else none.
+ */
+export const visitorAddressOf = (
+  header: (name: string) => string | undefined,
+  source: ClientAddressSource = 'auto',
+  onVercel = false,
+): string | undefined => {
+  const fromCloudflare = () => header('cf-connecting-ip')?.trim() || undefined;
+  const forwarded = () => header('x-forwarded-for')?.split(',')[0]?.trim() || undefined;
+  if (source === 'cloudflare') return fromCloudflare();
+  if (source === 'forwarded') return forwarded();
+  if (source === 'none') return undefined;
+  if (onVercel) return forwarded();
+  return header('cf-ray') ? fromCloudflare() : undefined;
+};
+
+/**
+ * The hex SHA-256 of the visitor's address as the request gives it, so the service can tell one sender from another
+ * without receiving the address itself. Undefined where no address is known: the service then applies no per-sender
+ * limit.
+ */
+export const clientKeyOf = (ip: string | undefined): string | undefined => {
+  const address = ip?.trim();
+  return address ? createHash('sha256').update(address).digest('hex') : undefined;
+};
+
+/**
+ * How the Channels service answered:
+ * - `received` — it stored the submission; the Cockpit sends it, or holds it at the project's quota, within the minute;
+ * - `refused` — a final answer: a malformed submission (400), refused (403) or too many submissions (429). The
+ *   storefront's own mail never stands in for it;
+ * - `unavailable` — the service did not know the storefront (401: the project unknown or its secret wrong, which a
+ *   stale identity at the service answers too), failed (5xx), could not be reached or did not answer in time: nothing
+ *   is known to be stored, so the storefront's own mail takes it, and a withdrawal is never lost to an identity the
+ *   service has not caught up with.
  */
 export type ChannelsOutcome =
-  | { kind: 'sent' }
-  | { kind: 'refused'; message: string; limitReached: boolean }
+  | { kind: 'received' }
+  | { kind: 'refused'; status: number }
   | { kind: 'unavailable'; reason: string };
 
-/** Answers after which the storefront's own mail would only repeat or bypass the Cockpit's decision. */
+/** Answers after which the storefront's own mail would only repeat or bypass the service's decision. */
 const FINAL_REFUSALS = new Set([400, 403, 429]);
 
 export const channelsBodyOf = (target: ChannelsTarget, submission: ChannelsSubmission) => ({
@@ -87,17 +126,16 @@ export const channelsBodyOf = (target: ChannelsTarget, submission: ChannelsSubmi
   fields: submission.fields,
   ...(submission.visitorEmail ? { visitorEmail: submission.visitorEmail } : {}),
   locale: channelsLocaleOf(submission.locale),
+  ...(submission.clientKey ? { clientKey: submission.clientKey } : {}),
 });
 
-const answerOf = async (response: Response): Promise<{ message?: string; code?: string }> => {
+/** What the service's error says, for the log only: `{ error }`. */
+const errorOf = async (response: Response): Promise<string | undefined> => {
   try {
-    const body = (await response.json()) as { message?: unknown; code?: unknown };
-    return {
-      message: typeof body?.message === 'string' ? body.message : undefined,
-      code: typeof body?.code === 'string' ? body.code : undefined,
-    };
+    const body = (await response.json()) as { error?: unknown };
+    return typeof body?.error === 'string' ? body.error : undefined;
   } catch {
-    return {};
+    return undefined;
   }
 };
 
@@ -118,9 +156,8 @@ export async function submitToChannels(
   } catch (error) {
     return { kind: 'unavailable', reason: error instanceof Error ? error.message : 'request failed' };
   }
-  if (response.ok) return { kind: 'sent' };
-  const answer = await answerOf(response);
-  if (FINAL_REFUSALS.has(response.status) && answer.message)
-    return { kind: 'refused', message: answer.message, limitReached: answer.code === 'limitReached' };
-  return { kind: 'unavailable', reason: `${response.status}${answer.code ? ` ${answer.code}` : ''}` };
+  if (response.ok) return { kind: 'received' };
+  if (FINAL_REFUSALS.has(response.status)) return { kind: 'refused', status: response.status };
+  const error = await errorOf(response);
+  return { kind: 'unavailable', reason: `${response.status}${error ? ` ${error}` : ''}` };
 }

@@ -50,16 +50,25 @@ export interface MailerActionsConfig {
 }
 
 /**
- * Delivery through the project's Email channel in the Laioutr Cockpit, on by default for a Laioutr project: the Cockpit
- * chooses the sender and the recipients, logs every email and counts it against the project's quota. The `transport`
- * and its addresses are then only the fallback for a Cockpit that cannot take the submission.
+ * Delivery through the project's Email channel in Laioutr, on by default for a Laioutr project: the Channels service
+ * takes the submission, and the Cockpit chooses the sender and the recipients, logs every email and counts it against
+ * the project's quota. The `transport` and its addresses are then only the fallback for a service that cannot take it.
  */
 export interface ChannelsConfig {
   /** `false` sends through `transport` only. */
   enabled?: boolean;
-  /** The Cockpit's submissions endpoint; defaults to Laioutr's. */
+  /** The Channels service's submissions endpoint; defaults to Laioutr's. */
   url?: string;
+  /**
+   * Where the visitor's address is read for the service's per-sender limit: `auto` (default) finds it from where the
+   * storefront runs, `cloudflare` and `forwarded` name the header a trusted proxy sets, `none` sends no key.
+   */
+  clientAddress?: ClientAddressSource;
 }
+
+/** The sources of the visitor's address; a header only a trusted proxy overwrites, never one a visitor can set. */
+export const CLIENT_ADDRESS_SOURCES = ['auto', 'cloudflare', 'forwarded', 'none'] as const;
+export type ClientAddressSource = (typeof CLIENT_ADDRESS_SOURCES)[number];
 
 /** The private config stored in runtimeConfig[name]. Not validated (by design). */
 export interface MailerConfig {
